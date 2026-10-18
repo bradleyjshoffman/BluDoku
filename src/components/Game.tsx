@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CAT, CROSS, EMPTY, getHint, STRIKE, type Hint } from "@/lib/hint";
 import type { Difficulty, Puzzle } from "@/lib/puzzle/types";
 import { formatTime, loadProgress, recordWin, starsFor, updateProgress } from "@/lib/progress";
+import { playFind, playStars, playStrike, playWin, setSoundEnabled, unlockAudio } from "@/lib/sound";
 import { Board } from "./Board";
 import { CHAPTERS, LEVELS_PER_CHAPTER } from "@/lib/chapters";
 import { CatIcon, PawIcon } from "./CatIcon";
@@ -39,6 +40,7 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
   const [status, setStatus] = useState<Status>("playing");
   const [hint, setHint] = useState<Hint | null>(null);
   const [autoX, setAutoX] = useState(true);
+  const [sound, setSound] = useState(true);
   const [shaking, setShaking] = useState(false);
   const [justFound, setJustFound] = useState<number | null>(null);
   const [showOverlay, setShowOverlay] = useState(false);
@@ -54,6 +56,8 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
   useEffect(() => {
     const p = loadProgress();
     setAutoX(p.autoX);
+    setSound(p.sound);
+    setSoundEnabled(p.sound);
     if (levelId !== undefined) {
       const saved = p.boards[levelId];
       if (saved && saved.m.length === n * n) {
@@ -138,12 +142,14 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
       const text = last ? "That’s everyone!" : cheers[Math.floor(Math.random() * cheers.length)];
       setFx({ id: ++fxId.current, cell, kind: "find", text });
       buzz(35);
+      playFind(next.filter((x) => x === CAT).length, n);
       if (last) win();
     } else {
       next[cell] = STRIKE;
       setMarks(next);
       setFx({ id: ++fxId.current, cell, kind: "miss", text: ["Hiss!", "Nope!", "Not here!"][Math.floor(Math.random() * 3)] });
       buzz([70, 50, 70]);
+      playStrike();
       setShaking(true);
       setTimeout(() => setShaking(false), 450);
       if (next.filter((x) => x === STRIKE).length >= MAX_STRIKES) lose();
@@ -171,13 +177,18 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
   const win = () => {
     setStatus("won");
     setTimeout(() => buzz([40, 60, 40, 60, 160]), 500);
+    playWin();
     if (levelId !== undefined) {
       const prev = loadProgress().completed[levelId];
       recordWin(levelId, elapsed, starsFor(strikes));
       setBest({ time: prev === undefined ? elapsed : Math.min(prev, elapsed), isNew: prev === undefined || elapsed < prev });
     }
-    // Let the board party play out before the popup.
-    setTimeout(() => setShowOverlay(true), 2000);
+    // Let the board party play out before the popup; stars ding as they pop in.
+    const earned = starsFor(strikes);
+    setTimeout(() => {
+      setShowOverlay(true);
+      playStars(earned, 0.6, 0.3);
+    }, 2000);
   };
 
   const lose = () => {
@@ -215,6 +226,13 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
     setJustFound(null);
   };
 
+  const toggleSound = () => {
+    const v = !sound;
+    setSound(v);
+    setSoundEnabled(v);
+    updateProgress((p) => (p.sound = v));
+  };
+
   const toggleAutoX = () => {
     const v = !autoX;
     setAutoX(v);
@@ -231,6 +249,8 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
 
   return (
     <div
+      onPointerUpCapture={unlockAudio}
+      onKeyDownCapture={unlockAudio}
       className={`game theme-${ch ? SCENE_MODE[ch.key] : "plain"}`}
       style={ch ? { ["--accent" as string]: ch.accent, ["--frame" as string]: ch.frame } : undefined}
     >
@@ -255,9 +275,19 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
             <span className="timer">⏱ {formatTime(elapsed)}</span>
           </div>
         </div>
-        <button className="icon-btn" onClick={() => setShowHelp(true)} aria-label="How to play">
-          ?
-        </button>
+        <div className="header-actions">
+          <button
+            className="icon-btn"
+            onClick={toggleSound}
+            aria-label={sound ? "Mute sounds" : "Turn sounds on"}
+            aria-pressed={!sound}
+          >
+            {sound ? "🔊" : "🔇"}
+          </button>
+          <button className="icon-btn" onClick={() => setShowHelp(true)} aria-label="How to play">
+            ?
+          </button>
+        </div>
       </header>
 
       <div className="status-row">

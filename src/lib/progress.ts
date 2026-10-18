@@ -13,9 +13,10 @@ export interface Progress {
   autoX: boolean;
   /** Level id → best star rating (1–3). */
   stars: Record<number, number>;
+  sound: boolean;
 }
 
-const empty = (): Progress => ({ completed: {}, boards: {}, autoX: true, stars: {} });
+const empty = (): Progress => ({ completed: {}, boards: {}, autoX: true, stars: {}, sound: true });
 
 export function loadProgress(): Progress {
   try {

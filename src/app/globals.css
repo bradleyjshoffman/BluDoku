@@ -525,7 +525,17 @@ p {
 
 .game-title {
   flex: 1;
+  min-width: 0;
   text-align: center;
+}
+
+.header-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.header-actions .icon-btn {
+  font-size: 18px;
 }
 
 .game-chapter {
