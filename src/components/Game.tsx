@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CAT, CROSS, EMPTY, getHint, STRIKE, type Hint } from "@/lib/hint";
 import type { Difficulty, Puzzle } from "@/lib/puzzle/types";
 import { formatTime, loadProgress, recordWin, starsFor, updateProgress } from "@/lib/progress";
+import { hapticFind, hapticStrike, hapticTap, hapticWin } from "@/lib/haptics";
 import { playFind, playStars, playStrike, playWin, setSoundEnabled, unlockAudio } from "@/lib/sound";
 import { Board } from "./Board";
 import { CHAPTERS, LEVELS_PER_CHAPTER } from "@/lib/chapters";
@@ -97,6 +98,7 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
     const next = marks.slice();
     next[cell] = m === CROSS ? EMPTY : CROSS;
     setMarks(next);
+    hapticTap();
   };
 
   const onDoubleTap = (cell: number) => {
@@ -121,14 +123,14 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
       const last = next.filter((x) => x === CAT).length === n;
       const text = last ? "That’s everyone!" : cheers[Math.floor(Math.random() * cheers.length)];
       setFx({ id: ++fxId.current, cell, kind: "find", text });
-      buzz(35);
+      hapticFind();
       playFind(next.filter((x) => x === CAT).length, n);
       if (last) win();
     } else {
       next[cell] = STRIKE;
       setMarks(next);
       setFx({ id: ++fxId.current, cell, kind: "miss", text: ["Hiss!", "Nope!", "Not here!"][Math.floor(Math.random() * 3)] });
-      buzz([70, 50, 70]);
+      hapticStrike();
       playStrike();
       setShaking(true);
       setTimeout(() => setShaking(false), 450);
@@ -143,6 +145,8 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
   };
 
   const onStrokePaint = (cell: number, mode: "paint" | "erase") => {
+    const m = marks[cell];
+    if (m !== CAT && m !== STRIKE && m !== (mode === "paint" ? CROSS : EMPTY)) hapticTap();
     setMarks((prev) => {
       const m = prev[cell];
       if (m === CAT || m === STRIKE) return prev;
@@ -156,7 +160,7 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
 
   const win = () => {
     setStatus("won");
-    setTimeout(() => buzz([40, 60, 40, 60, 160]), 500);
+    setTimeout(hapticWin, 500);
     playWin();
     if (levelId !== undefined) {
       const prev = loadProgress().completed[levelId];
@@ -408,15 +412,6 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
       {showHelp && <HowToPlay onClose={() => setShowHelp(false)} />}
     </div>
   );
-}
-
-function buzz(pattern: number | number[]) {
-  try {
-    // Browsers only allow vibration after a real tap.
-    if (navigator.userActivation?.hasBeenActive ?? true) navigator.vibrate?.(pattern);
-  } catch {
-    /* vibration not supported */
-  }
 }
 
 /** The celebration when a cat is found (or the grumble on a wrong guess). */
