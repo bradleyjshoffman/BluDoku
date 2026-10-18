@@ -89,13 +89,12 @@ function tone(
   osc.stop(start + duration + 0.05);
 }
 
-function voice(name: string, delay: number, rate: number, volume = 1) {
+function voice(name: string, delay: number, volume = 1) {
   const buf = clips.get(name);
   if (!buf) return;
   const c = ctx!;
   const src = c.createBufferSource();
   src.buffer = buf;
-  src.playbackRate.value = rate;
   const gain = c.createGain();
   gain.gain.value = volume;
   src.connect(gain).connect(master!);
@@ -115,7 +114,7 @@ export function playFind(foundSoFar: number, total: number) {
   tone(note * 2, t + 0.16, 0.3, { type: "sine", volume: 0.1 });
   if (foundSoFar < total) {
     const tier = progress < 0.34 ? 0 : progress < 0.67 ? 1 : 2;
-    voice(pick(VOICE.find[tier]), 0.12, 1.05 + progress * 0.2);
+    voice(pick(VOICE.find[tier]), 0.12);
   }
 }
 
@@ -153,7 +152,7 @@ export function playWin() {
   for (const f of [1046.5, 1318.51, 1567.98, 2093]) tone(f, t + 0.48, 0.9, { volume: 0.12 });
   // Sparkly glissando.
   for (let i = 0; i < 10; i++) tone(SCALE[i], t + 0.55 + i * 0.045, 0.18, { type: "sine", volume: 0.07 });
-  voice(pick(VOICE.win), 0.9, 1.1);
+  voice(pick(VOICE.win), 0.9);
 }
 
 /** One ding per star as they pop into the win popup. */

@@ -32,7 +32,7 @@ foreach ($key in $lines.Keys) {
   $synth.SelectVoice("Microsoft Zira Desktop")
   $synth.SetOutputToWaveFile((Join-Path $out "$key.wav"), $format)
   $text = [System.Security.SecurityElement]::Escape($lines[$key])
-  $ssml = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><prosody pitch='x-high' rate='fast' volume='x-loud'><emphasis level='strong'>$text</emphasis></prosody></speak>"
+  $ssml = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><prosody volume='x-loud'>$text</prosody></speak>"
   $synth.SpeakSsml($ssml)
   $synth.Dispose()
   Write-Output "recorded $key"
