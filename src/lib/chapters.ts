@@ -14,6 +14,14 @@ export interface Chapter {
   ink: string;
   /** Small repeating background motif (SVG data URI). */
   motif: string;
+  /** Board frame color. */
+  frame: string;
+  /** Little cheers shown when a cat is found. */
+  cheers: string[];
+  /** Win screen title. */
+  winTitle: string;
+  /** Particles that burst out when a cat is found. */
+  sparkles: string[];
 }
 
 const svg = (body: string) =>
@@ -57,6 +65,10 @@ const motifs: Record<ChapterKey, (c: string) => string> = {
 const base: Omit<Chapter, "motif">[] = [
   {
     key: "kitten",
+    frame: "#c4577a",
+    cheers: ["Peekaboo!", "Aww, so tiny!", "Found a kitten!", "Mew!"],
+    winTitle: "Purr-fect!",
+    sparkles: ["♥", "🐾", "✿"],
     name: "Kitten Corner",
     tagline: "Where every little cat starts out.",
     accent: "#ff7fa3",
@@ -65,6 +77,10 @@ const base: Omit<Chapter, "motif">[] = [
   },
   {
     key: "yarn",
+    frame: "#9c3a2e",
+    cheers: ["Caught red-pawed!", "All tangled up!", "Knot so fast!", "Got you!"],
+    winTitle: "Un-knotted!",
+    sparkles: ["🧶", "✦", "♥"],
     name: "Yarn Alley",
     tagline: "Tangled threads and tricky knots.",
     accent: "#f0645a",
@@ -73,6 +89,10 @@ const base: Omit<Chapter, "motif">[] = [
   },
   {
     key: "sunbeam",
+    frame: "#c97c00",
+    cheers: ["Soaking up rays!", "Sunbathing!", "Found a sunny spot!", "So warm!"],
+    winTitle: "Sun-sational!",
+    sparkles: ["☀", "✦", "✧"],
     name: "Sunbeam Park",
     tagline: "Every cat wants the sunniest spot.",
     accent: "#f2a900",
@@ -81,6 +101,10 @@ const base: Omit<Chapter, "motif">[] = [
   },
   {
     key: "catnip",
+    frame: "#2f7a4f",
+    cheers: ["Blissed out!", "Hiding in the leaves!", "Catnip caper!", "So zen!"],
+    winTitle: "Nip-tastic!",
+    sparkles: ["🍃", "✿", "✦"],
     name: "Catnip Garden",
     tagline: "Things are getting a little wild.",
     accent: "#36a96f",
@@ -89,6 +113,10 @@ const base: Omit<Chapter, "motif">[] = [
   },
   {
     key: "fishbone",
+    frame: "#174f75",
+    cheers: ["Splish splash!", "Gone fishing!", "Fin-tastic!", "Blub blub!"],
+    winTitle: "Off the hook!",
+    sparkles: ["🐟", "○", "✦"],
     name: "Fishbone Bay",
     tagline: "Salty breezes, fishy business.",
     accent: "#2a8fd0",
@@ -97,6 +125,10 @@ const base: Omit<Chapter, "motif">[] = [
   },
   {
     key: "moonlit",
+    frame: "#231f4d",
+    cheers: ["Night prowler!", "Eyes in the dark!", "Moonwalker!", "Shh…"],
+    winTitle: "Star-studded!",
+    sparkles: ["★", "✦", "☾"],
     name: "Moonlit Rooftops",
     tagline: "Night prowls under the stars.",
     accent: "#7a6cf0",
@@ -105,6 +137,10 @@ const base: Omit<Chapter, "motif">[] = [
   },
   {
     key: "tuna",
+    frame: "#a8401f",
+    cheers: ["Snack time!", "Tuna thief!", "Can-tastic!", "Nom nom!"],
+    winTitle: "Can-believable!",
+    sparkles: ["🐟", "✦", "♥"],
     name: "Tuna Tower",
     tagline: "Stacked high and hard to reach.",
     accent: "#e4693f",
@@ -113,6 +149,10 @@ const base: Omit<Chapter, "motif">[] = [
   },
   {
     key: "lion",
+    frame: "#7a4a12",
+    cheers: ["ROAR!", "King of the grid!", "Brave little lion!", "Mighty!"],
+    winTitle: "Roar-some!",
+    sparkles: ["👑", "✦", "★"],
     name: "Lion’s Den",
     tagline: "Only the bravest cats make it here.",
     accent: "#c98316",
@@ -125,4 +165,9 @@ export const CHAPTERS: Chapter[] = base.map((c) => ({ ...c, motif: motifs[c.key]
 
 export function chapterIndexOf(levelId: number): number {
   return Math.min(CHAPTERS.length - 1, Math.floor((levelId - 1) / LEVELS_PER_CHAPTER));
+}
+
+/** Random puzzles borrow a chapter's theme, picked by seed. */
+export function chapterForSeed(seed: number): number {
+  return Math.abs(Math.floor(seed)) % CHAPTERS.length;
 }

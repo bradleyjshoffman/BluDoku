@@ -9,6 +9,7 @@ import { Board } from "./Board";
 import { CHAPTERS, LEVELS_PER_CHAPTER } from "@/lib/chapters";
 import { CatIcon, PawIcon } from "./CatIcon";
 import { ChapterEmblem } from "./ChapterEmblem";
+import { SCENE_MODE, ThemeScene } from "./ThemeScene";
 import { HowToPlay } from "./HowToPlay";
 
 export const MAX_STRIKES = 3;
@@ -43,6 +44,8 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
   const [showOverlay, setShowOverlay] = useState(false);
   const [best, setBest] = useState<{ time?: number; isNew: boolean }>({ isNew: false });
   const [showHelp, setShowHelp] = useState(false);
+  const [fx, setFx] = useState<{ id: number; cell: number; kind: "find" | "miss"; text: string } | null>(null);
+  const fxId = useRef(0);
   const loaded = useRef(false);
   // The first tap of a double-tap toggles an X; the guess undoes that toggle.
   const pendingTap = useRef<{ cell: number; before: number[] } | null>(null);
@@ -130,10 +133,15 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
       next[cell] = CAT;
       setJustFound(cell);
       setMarks(next);
+      const cheers = ch?.cheers ?? ["Meow!", "Found one!", "Purr!"];
+      setFx({ id: ++fxId.current, cell, kind: "find", text: cheers[Math.floor(Math.random() * cheers.length)] });
+      buzz(35);
       if (next.filter((x) => x === CAT).length === n) win();
     } else {
       next[cell] = STRIKE;
       setMarks(next);
+      setFx({ id: ++fxId.current, cell, kind: "miss", text: ["Hiss!", "Nope!", "Not here!"][Math.floor(Math.random() * 3)] });
+      buzz([70, 50, 70]);
       setShaking(true);
       setTimeout(() => setShaking(false), 450);
       if (next.filter((x) => x === STRIKE).length >= MAX_STRIKES) lose();
@@ -218,14 +226,11 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
   const hintArea = useMemo(() => new Set(hint?.area ?? []), [hint]);
 
   return (
-    <div className="game" style={ch ? { ["--accent" as string]: ch.accent } : undefined}>
-      {ch && (
-        <div
-          className="page-backdrop"
-          aria-hidden="true"
-          style={{ backgroundImage: `url("${ch.motif}")` }}
-        />
-      )}
+    <div
+      className={`game theme-${ch ? SCENE_MODE[ch.key] : "plain"}`}
+      style={ch ? { ["--accent" as string]: ch.accent, ["--frame" as string]: ch.frame } : undefined}
+    >
+      {ch && <ThemeScene chapter={ch.key} />}
       <header className="game-header">
         <Link href="/" className="icon-btn" aria-label="Back to levels">
           ←
@@ -255,7 +260,7 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
         <div className="cats-found" aria-label={`${found} of ${n} cats found`}>
           {Array.from({ length: n }, (_, i) => (
             <span key={i} className={i < found ? "slot filled" : "slot"}>
-              {i < found ? <CatIcon /> : <PawIcon />}
+              {i < found ? <CatIcon outfit={ch?.key} /> : <PawIcon />}
             </span>
           ))}
         </div>
@@ -269,6 +274,7 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
       </div>
 
       <div className={`board-wrap${shaking ? " shake" : ""}`}>
+        {ch && <ChapterEmblem chapter={ch.key} className="frame-sticker" />}
         <Board
           size={n}
           regions={puzzle.regions}
@@ -283,13 +289,26 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
           onDoubleTap={onDoubleTap}
           onStrokeStart={onStrokeStart}
           onStrokePaint={onStrokePaint}
+          outfit={ch?.key}
         />
+        {fx && (
+          <div className="fx-layer" aria-hidden="true">
+            <FindFx
+              key={fx.id}
+              cell={fx.cell}
+              n={n}
+              kind={fx.kind}
+              text={fx.text}
+              sparkles={ch?.sparkles ?? ["★", "✦", "♥"]}
+            />
+          </div>
+        )}
       </div>
 
       <div className={`hint-bubble${hint ? " show" : ""} ${hint?.kind ?? ""}`} role="status" aria-live="polite">
         {hint && (
           <>
-            <CatIcon className="hint-cat" />
+            <CatIcon className="hint-cat" outfit={ch?.key} />
             <p>{hint.message}</p>
           </>
         )}
@@ -320,9 +339,9 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
             {chapterDone && ch ? (
               <ChapterEmblem chapter={ch.key} className="modal-cat bounce" />
             ) : (
-              <CatIcon className="modal-cat bounce" />
+              <CatIcon className="modal-cat bounce" outfit={ch?.key} />
             )}
-            <h2>{chapterDone ? "Chapter complete!" : "Purr-fect!"}</h2>
+            <h2>{chapterDone ? "Chapter complete!" : (ch?.winTitle ?? "Purr-fect!")}</h2>
             {chapterDone && ch && <p className="chapter-done">You conquered {ch.name}! 🎉</p>}
             <p>
               You found all {n} cats in <strong>{formatTime(elapsed)}</strong>
@@ -377,6 +396,60 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
       )}
 
       {showHelp && <HowToPlay onClose={() => setShowHelp(false)} />}
+    </div>
+  );
+}
+
+function buzz(pattern: number | number[]) {
+  try {
+    // Browsers only allow vibration after a real tap.
+    if (navigator.userActivation?.hasBeenActive ?? true) navigator.vibrate?.(pattern);
+  } catch {
+    /* vibration not supported */
+  }
+}
+
+/** The celebration when a cat is found (or the grumble on a wrong guess). */
+function FindFx({
+  cell,
+  n,
+  kind,
+  text,
+  sparkles,
+}: {
+  cell: number;
+  n: number;
+  kind: "find" | "miss";
+  text: string;
+  sparkles: string[];
+}) {
+  const r = Math.floor(cell / n);
+  const c = cell % n;
+  const pieces = kind === "find" ? 12 : 0;
+  return (
+    <div
+      className={`fx fx-${kind}${r < 2 ? " fx-below" : ""}${c < n / 3 ? " fx-al" : c >= (2 * n) / 3 ? " fx-ar" : ""}`}
+      style={{ left: `${((c + 0.5) / n) * 100}%`, top: `${((r + 0.5) / n) * 100}%` }}
+    >
+      {kind === "find" && <span className="fx-ring" />}
+      {Array.from({ length: pieces }, (_, i) => {
+        const angle = (i / pieces) * Math.PI * 2 + (i % 2) * 0.3;
+        const dist = 46 + (i % 3) * 22;
+        return (
+          <span
+            key={i}
+            className="fx-spark"
+            style={{
+              ["--dx" as string]: `${Math.cos(angle) * dist}px`,
+              ["--dy" as string]: `${Math.sin(angle) * dist}px`,
+              animationDelay: `${(i % 4) * 30}ms`,
+            }}
+          >
+            {sparkles[i % sparkles.length]}
+          </span>
+        );
+      })}
+      <span className="fx-bubble">{text}</span>
     </div>
   );
 }

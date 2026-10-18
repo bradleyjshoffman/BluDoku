@@ -59,6 +59,17 @@ body {
   padding: 0;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  /* No double-tap zoom or tap delay on buttons. */
+  touch-action: manipulation;
+}
+
+body {
+  overflow-x: clip;
+  overscroll-behavior-y: none;
+}
+
 body {
   background-color: var(--bg);
   background-image: radial-gradient(var(--bg-dots) 2px, transparent 2px);
@@ -87,7 +98,8 @@ p {
 .page {
   max-width: 640px;
   margin: 0 auto;
-  padding: 16px 16px 48px;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(32px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
 }
 
 /* ---------- Buttons ---------- */
@@ -338,8 +350,7 @@ p {
   overflow: hidden;
 }
 
-.motif-layer,
-.page-backdrop {
+.motif-layer {
   background-size: 46px 46px;
   pointer-events: none;
 }
@@ -535,14 +546,6 @@ p {
   height: 22px;
 }
 
-.page-backdrop {
-  position: fixed;
-  inset: -40px;
-  z-index: -1;
-  opacity: 0.13;
-  transform: rotate(-8deg);
-}
-
 .chapter-done {
   font-weight: 700;
   color: var(--accent) !important;
@@ -622,9 +625,12 @@ p {
 }
 
 .board-wrap {
+  position: relative;
+  width: min(100%, 600px, max(280px, calc(100dvh - 300px)));
+  align-self: center;
   border-radius: 18px;
   padding: 6px;
-  background: #3d3450;
+  background: var(--frame, #3d3450);
   box-shadow: var(--shadow);
 }
 
@@ -651,7 +657,6 @@ p {
 
 .cell {
   position: relative;
-  overflow: hidden;
   display: grid;
   place-items: center;
   min-width: 0;

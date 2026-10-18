@@ -2,10 +2,13 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { chapterForSeed } from "@/lib/chapters";
 import { generatePuzzle } from "@/lib/puzzle/generator";
 import type { Difficulty, Puzzle } from "@/lib/puzzle/types";
 import { CatIcon } from "./CatIcon";
 import { Game } from "./Game";
+import { SCENE_MODE } from "./ThemeScene";
+import { CHAPTERS } from "@/lib/chapters";
 
 const SIZES = [5, 6, 7, 8, 9, 10, 11];
 const DIFFICULTIES: Difficulty[] = ["easy", "medium", "hard"];
@@ -71,14 +74,16 @@ export function RandomGame() {
     </section>
   );
 
+  const themeKey = CHAPTERS[chapterForSeed(seed ?? 0)].key;
   return (
-    <>
+    <div className={`theme-${SCENE_MODE[themeKey]}`}>
       {puzzle ? (
         <Game
           key={puzzle.key}
           puzzle={puzzle.p}
           title="Random puzzle"
           difficulty={difficulty}
+          chapter={chapterForSeed(seed ?? 0)}
           onNewPuzzle={() => go(size, difficulty, newSeed())}
         />
       ) : (
@@ -88,6 +93,6 @@ export function RandomGame() {
         </div>
       )}
       {settings}
-    </>
+    </div>
   );
 }

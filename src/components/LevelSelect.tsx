@@ -8,6 +8,7 @@ import { formatTime, loadProgress, type Progress } from "@/lib/progress";
 import { CatIcon, PawIcon } from "./CatIcon";
 import { ChapterEmblem } from "./ChapterEmblem";
 import { HowToPlay } from "./HowToPlay";
+import { SCENE_MODE, ThemeScene } from "./ThemeScene";
 
 export function LevelSelect() {
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -29,9 +30,10 @@ export function LevelSelect() {
   const ch = CHAPTERS[chapter];
 
   return (
-    <div className="home">
+    <div className={`home theme-${SCENE_MODE[ch.key]}`} style={{ ["--accent" as string]: ch.accent }}>
+      <ThemeScene chapter={ch.key} />
       <header className="hero">
-        <CatIcon className="hero-cat" />
+        <CatIcon className="hero-cat" outfit={ch.key} />
         <h1>
           Blu<span>Doku</span>
         </h1>
@@ -104,7 +106,7 @@ export function LevelSelect() {
                 aria-label={`Level ${l.id}, ${l.difficulty}, ${l.size} by ${l.size}${done ? `, solved in ${formatTime(best)}` : ""}`}
               >
                 {l.difficulty !== "medium" && <span className="tile-badge">{l.difficulty}</span>}
-                {done ? <CatIcon className="tile-cat" /> : <span className="tile-num">{l.id}</span>}
+                {done ? <CatIcon className="tile-cat" outfit={ch.key} /> : <span className="tile-num">{l.id}</span>}
                 <span className="tile-sub">{done ? formatTime(best) : `${l.size}×${l.size}`}</span>
               </Link>
             );

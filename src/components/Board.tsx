@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { CAT, CROSS, EMPTY, STRIKE } from "@/lib/hint";
 import { REGION_COLORS } from "@/lib/palette";
+import type { ChapterKey } from "@/lib/chapters";
 import { CatIcon } from "./CatIcon";
 
 const DOUBLE_TAP_MS = 320;
@@ -22,6 +23,7 @@ interface BoardProps {
   onDoubleTap: (cell: number) => void;
   onStrokeStart: () => void;
   onStrokePaint: (cell: number, mode: "paint" | "erase") => void;
+  outfit?: ChapterKey;
 }
 
 export function Board(props: BoardProps) {
@@ -128,7 +130,7 @@ export function Board(props: BoardProps) {
               ["--wave" as string]: `${(r + c) * 45}ms`,
             }}
           >
-            {m === CAT && <CatIcon className="cat" />}
+            {m === CAT && <CatIcon className="cat" outfit={props.outfit} />}
             {m === STRIKE && <XMark className="strike" />}
             {m === CROSS && <XMark className="cross" />}
             {m === EMPTY && props.autoCrossed.has(i) && <XMark className="auto" />}
