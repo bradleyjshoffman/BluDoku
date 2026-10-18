@@ -6,7 +6,9 @@ import { CAT, CROSS, EMPTY, getHint, STRIKE, type Hint } from "@/lib/hint";
 import type { Difficulty, Puzzle } from "@/lib/puzzle/types";
 import { formatTime, loadProgress, recordWin, updateProgress } from "@/lib/progress";
 import { Board } from "./Board";
+import { CHAPTERS, LEVELS_PER_CHAPTER } from "@/lib/chapters";
 import { CatIcon, PawIcon } from "./CatIcon";
+import { ChapterEmblem } from "./ChapterEmblem";
 import { HowToPlay } from "./HowToPlay";
 
 export const MAX_STRIKES = 3;
@@ -19,12 +21,16 @@ interface GameProps {
   levelId?: number;
   nextHref?: string;
   onNewPuzzle?: () => void;
+  /** Chapter index, for theming fixed levels. */
+  chapter?: number;
 }
 
 type Status = "playing" | "won" | "lost";
 
-export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle }: GameProps) {
+export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle, chapter }: GameProps) {
   const n = puzzle.size;
+  const ch = chapter === undefined ? null : CHAPTERS[chapter];
+  const chapterDone = ch !== null && levelId !== undefined && levelId % LEVELS_PER_CHAPTER === 0;
   const blank = useMemo(() => new Array<number>(n * n).fill(EMPTY), [n]);
   const [marks, setMarks] = useState<number[]>(blank);
   const [history, setHistory] = useState<number[][]>([]);
@@ -212,12 +218,25 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
   const hintArea = useMemo(() => new Set(hint?.area ?? []), [hint]);
 
   return (
-    <div className="game">
+    <div className="game" style={ch ? { ["--accent" as string]: ch.accent } : undefined}>
+      {ch && (
+        <div
+          className="page-backdrop"
+          aria-hidden="true"
+          style={{ backgroundImage: `url("${ch.motif}")` }}
+        />
+      )}
       <header className="game-header">
         <Link href="/" className="icon-btn" aria-label="Back to levels">
           ←
         </Link>
         <div className="game-title">
+          {ch && (
+            <div className="game-chapter">
+              <ChapterEmblem chapter={ch.key} className="game-chapter-art" />
+              {ch.name}
+            </div>
+          )}
           <h1>{title}</h1>
           <div className="game-meta">
             <span className={`pill pill-${difficulty}`}>{difficulty}</span>
@@ -298,8 +317,13 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
         <div className="overlay" role="dialog" aria-modal="true" aria-label="Puzzle solved">
           <Confetti />
           <div className="modal">
-            <CatIcon className="modal-cat bounce" />
-            <h2>Purr-fect!</h2>
+            {chapterDone && ch ? (
+              <ChapterEmblem chapter={ch.key} className="modal-cat bounce" />
+            ) : (
+              <CatIcon className="modal-cat bounce" />
+            )}
+            <h2>{chapterDone ? "Chapter complete!" : "Purr-fect!"}</h2>
+            {chapterDone && ch && <p className="chapter-done">You conquered {ch.name}! 🎉</p>}
             <p>
               You found all {n} cats in <strong>{formatTime(elapsed)}</strong>
               {strikes === 0 && " without a single slip"}!

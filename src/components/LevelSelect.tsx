@@ -2,22 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { CHAPTERS, LEVELS_PER_CHAPTER as PER_CHAPTER } from "@/lib/chapters";
 import { LEVELS } from "@/lib/levelData";
 import { formatTime, loadProgress, type Progress } from "@/lib/progress";
 import { CatIcon, PawIcon } from "./CatIcon";
+import { ChapterEmblem } from "./ChapterEmblem";
 import { HowToPlay } from "./HowToPlay";
-
-const PER_CHAPTER = 25;
-const CHAPTERS = [
-  "Kitten Corner",
-  "Yarn Alley",
-  "Sunbeam Park",
-  "Catnip Garden",
-  "Fishbone Bay",
-  "Moonlit Rooftops",
-  "Tuna Tower",
-  "Lion’s Den",
-];
 
 export function LevelSelect() {
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -36,6 +26,7 @@ export function LevelSelect() {
   const nextId = LEVELS.find((l) => completed[l.id] === undefined)?.id ?? 1;
   const doneCount = Object.keys(completed).length;
   const levels = LEVELS.slice(chapter * PER_CHAPTER, (chapter + 1) * PER_CHAPTER);
+  const ch = CHAPTERS[chapter];
 
   return (
     <div className="home">
@@ -62,16 +53,19 @@ export function LevelSelect() {
       </header>
 
       <nav className="chapters" aria-label="Chapters">
-        {CHAPTERS.map((name, i) => {
+        {CHAPTERS.map((ch, i) => {
           const ids = LEVELS.slice(i * PER_CHAPTER, (i + 1) * PER_CHAPTER).map((l) => l.id);
           const done = ids.filter((id) => completed[id] !== undefined).length;
           return (
             <button
-              key={name}
+              key={ch.key}
               className={`chapter${i === chapter ? " active" : ""}${done === ids.length ? " complete" : ""}`}
+              style={{ ["--accent" as string]: ch.accent }}
               onClick={() => setChapter(i)}
+              aria-pressed={i === chapter}
             >
-              <span className="chapter-name">{name}</span>
+              <ChapterEmblem chapter={ch.key} className="chapter-emblem" />
+              <span className="chapter-name">{ch.name}</span>
               <span className="chapter-count">
                 {done}/{ids.length}
               </span>
@@ -80,12 +74,23 @@ export function LevelSelect() {
         })}
       </nav>
 
-      <section className="card">
-        <div className="chapter-head">
-          <h2>{CHAPTERS[chapter]}</h2>
-          <span>
-            Levels {chapter * PER_CHAPTER + 1}–{(chapter + 1) * PER_CHAPTER}
-          </span>
+      <section className="card chapter-card" style={{ ["--accent" as string]: ch.accent }}>
+        <div
+          className="chapter-banner"
+          style={{
+            background: `linear-gradient(135deg, ${ch.banner[0]}, ${ch.banner[1]})`,
+            color: ch.ink,
+          }}
+        >
+          <div className="motif-layer" style={{ backgroundImage: `url("${ch.motif}")` }} />
+          <div className="chapter-banner-text">
+            <span className="chapter-kicker">
+              Chapter {chapter + 1} · Levels {chapter * PER_CHAPTER + 1}–{(chapter + 1) * PER_CHAPTER}
+            </span>
+            <h2>{ch.name}</h2>
+            <p>{ch.tagline}</p>
+          </div>
+          <ChapterEmblem chapter={ch.key} className="chapter-banner-art" />
         </div>
         <div className="level-grid">
           {levels.map((l) => {
