@@ -10,13 +10,12 @@ export interface Progress {
   completed: Record<number, number>;
   /** Level id → in-progress board: one digit per cell ("0" empty, "1" X, "2" cat, "3" strike) and seconds played. */
   boards: Record<number, { m: string; t: number }>;
-  autoX: boolean;
   /** Level id → best star rating (1–3). */
   stars: Record<number, number>;
   sound: boolean;
 }
 
-const empty = (): Progress => ({ completed: {}, boards: {}, autoX: true, stars: {}, sound: true });
+const empty = (): Progress => ({ completed: {}, boards: {}, stars: {}, sound: true });
 
 export function loadProgress(): Progress {
   try {

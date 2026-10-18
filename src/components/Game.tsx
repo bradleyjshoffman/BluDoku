@@ -39,7 +39,6 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
   const [elapsed, setElapsed] = useState(0);
   const [status, setStatus] = useState<Status>("playing");
   const [hint, setHint] = useState<Hint | null>(null);
-  const [autoX, setAutoX] = useState(true);
   const [sound, setSound] = useState(true);
   const [shaking, setShaking] = useState(false);
   const [justFound, setJustFound] = useState<number | null>(null);
@@ -55,7 +54,6 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
   // Restore saved settings and any in-progress board after mount (localStorage is client-only).
   useEffect(() => {
     const p = loadProgress();
-    setAutoX(p.autoX);
     setSound(p.sound);
     setSoundEnabled(p.sound);
     if (levelId !== undefined) {
@@ -88,24 +86,6 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
     });
   }, [marks, elapsed, levelId, status]);
 
-  /** Squares ruled out by cats already found: same row, column, color, or touching. */
-  const ruledOut = useMemo(() => {
-    const out = new Set<number>();
-    marks.forEach((m, i) => {
-      if (m !== CAT) return;
-      const r = Math.floor(i / n);
-      const c = i % n;
-      for (let j = 0; j < n * n; j++) {
-        if (j === i) continue;
-        const rr = Math.floor(j / n);
-        const cc = j % n;
-        if (rr === r || cc === c || puzzle.regions[j] === puzzle.regions[i] || (Math.abs(rr - r) <= 1 && Math.abs(cc - c) <= 1))
-          out.add(j);
-      }
-    });
-    return out;
-  }, [marks, n, puzzle.regions]);
-
   const pushHistory = useCallback(() => setHistory((h) => [...h.slice(-199), marks]), [marks]);
 
   const onTap = (cell: number) => {
@@ -128,7 +108,7 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
     }
     pendingTap.current = null;
     const m = base[cell];
-    if (m === CAT || m === STRIKE || (autoX && ruledOut.has(cell))) {
+    if (m === CAT || m === STRIKE) {
       setMarks(base);
       return;
     }
@@ -233,15 +213,9 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
     updateProgress((p) => (p.sound = v));
   };
 
-  const toggleAutoX = () => {
-    const v = !autoX;
-    setAutoX(v);
-    updateProgress((p) => (p.autoX = v));
-  };
-
   const showHint = () => {
     if (status !== "playing") return;
-    setHint(getHint(puzzle, marks, autoX));
+    setHint(getHint(puzzle, marks));
   };
 
   const hintFocus = useMemo(() => new Set(hint?.focus ?? []), [hint]);
@@ -313,7 +287,6 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
           size={n}
           regions={puzzle.regions}
           marks={marks}
-          autoCrossed={autoX ? ruledOut : new Set()}
           hintFocus={hintFocus}
           hintArea={hintArea}
           justFound={justFound}
@@ -360,12 +333,7 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
           💡 Hint
         </button>
       </div>
-      <label className="toggle">
-        <input type="checkbox" checked={autoX} onChange={toggleAutoX} />
-        <span className="toggle-track" />
-        Auto-X squares around found cats
-      </label>
-      <p className="tip">Tap a square to mark an X. Double-tap to look for a cat. Drag to mark lots of X’s.</p>
+      <p className="tip">Tap a square to mark an X. Drag across squares to mark lots at once. Double-tap to look for a cat.</p>
 
       {showOverlay && status === "won" && (
         <div className="overlay" role="dialog" aria-modal="true" aria-label="Puzzle solved">

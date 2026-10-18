@@ -697,11 +697,6 @@ p {
   stroke-width: 9;
 }
 
-.mark.auto {
-  stroke: rgba(61, 52, 80, 0.42);
-  stroke-width: 7;
-}
-
 .mark.strike {
   stroke: #e5394f;
   stroke-width: 11;
@@ -719,14 +714,8 @@ p {
 }
 
 .line-thin {
-  stroke: rgba(61, 52, 80, 0.16);
+  stroke: rgba(61, 52, 80, 0.18);
   stroke-width: 1px;
-  vector-effect: non-scaling-stroke;
-}
-
-.line-thick {
-  stroke: #3d3450;
-  stroke-width: 3px;
   vector-effect: non-scaling-stroke;
 }
 
@@ -783,58 +772,6 @@ p {
   justify-content: center;
   gap: 10px;
   flex-wrap: wrap;
-}
-
-.toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.toggle input {
-  position: absolute;
-  opacity: 0;
-}
-
-.toggle-track {
-  width: 40px;
-  height: 24px;
-  border-radius: 999px;
-  background: var(--line);
-  position: relative;
-  transition: background 0.2s ease;
-  flex: none;
-}
-
-.toggle-track::after {
-  content: "";
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  transition: transform 0.2s ease;
-}
-
-.toggle input:checked + .toggle-track {
-  background: var(--primary);
-}
-
-.toggle input:checked + .toggle-track::after {
-  transform: translateX(16px);
-}
-
-.toggle input:focus-visible + .toggle-track {
-  outline: 3px solid #b8c6ff;
-  outline-offset: 2px;
 }
 
 /* ---------- Random ---------- */

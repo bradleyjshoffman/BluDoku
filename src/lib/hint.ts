@@ -44,7 +44,7 @@ function unitCells(state: LogicState, u: UnitRef): number[] {
   return state.units[base + u.index];
 }
 
-export function getHint(puzzle: Puzzle, marks: number[], autoX: boolean): Hint {
+export function getHint(puzzle: Puzzle, marks: number[]): Hint {
   const { size: n, solution, regions } = puzzle;
   const isSolutionCell = (i: number) => solution[Math.floor(i / n)] === i % n;
 
@@ -60,18 +60,16 @@ export function getHint(puzzle: Puzzle, marks: number[], autoX: boolean): Hint {
 
   const state = new LogicState(n, regions);
   marks.forEach((m, i) => m === CAT && state.placeCat(i));
-  if (!autoX) {
-    const implied = marks
-      .map((m, i) => (m === EMPTY && !state.cand[i] ? i : -1))
-      .filter((i) => i >= 0);
-    if (implied.length) {
-      return {
-        message: "These squares can't have a cat: each one shares a row, column or color with a cat, or touches one.",
-        focus: implied,
-        area: [],
-        kind: "cross",
-      };
-    }
+  const implied = marks
+    .map((m, i) => (m === EMPTY && !state.cand[i] ? i : -1))
+    .filter((i) => i >= 0);
+  if (implied.length) {
+    return {
+      message: "These squares can't have a cat: each one shares a row, column or color with a cat, or touches one.",
+      focus: implied,
+      area: [],
+      kind: "cross",
+    };
   }
   marks.forEach((m, i) => (m === CROSS || m === STRIKE) && (state.cand[i] = 0));
 

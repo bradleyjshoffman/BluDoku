@@ -12,8 +12,6 @@ interface BoardProps {
   size: number;
   regions: number[];
   marks: number[];
-  /** Cells shown with a soft auto-X (ruled out by found cats). */
-  autoCrossed: Set<number>;
   hintFocus: Set<number>;
   hintArea: Set<number>;
   justFound: number | null;
@@ -30,6 +28,7 @@ export function Board(props: BoardProps) {
   const { size: n, regions, marks } = props;
   const gesture = useRef<{
     start: number;
+    last: number;
     mode: "paint" | "erase";
     dragging: boolean;
     visited: Set<number>;
@@ -48,6 +47,7 @@ export function Board(props: BoardProps) {
     e.currentTarget.setPointerCapture(e.pointerId);
     gesture.current = {
       start: cell,
+      last: cell,
       mode: marks[cell] === CROSS ? "erase" : "paint",
       dragging: false,
       visited: new Set([cell]),
@@ -58,15 +58,20 @@ export function Board(props: BoardProps) {
     const g = gesture.current;
     if (!g) return;
     const cell = cellAt(e.clientX, e.clientY);
-    if (cell === null || g.visited.has(cell)) return;
+    if (cell === null || cell === g.last) return;
     if (!g.dragging) {
       g.dragging = true;
       lastTap.current = null;
       props.onStrokeStart();
       props.onStrokePaint(g.start, g.mode);
     }
-    g.visited.add(cell);
-    props.onStrokePaint(cell, g.mode);
+    // A fast swipe can jump several squares between events: mark every square on the way.
+    for (const i of cellsBetween(n, g.last, cell)) {
+      if (g.visited.has(i)) continue;
+      g.visited.add(i);
+      props.onStrokePaint(i, g.mode);
+    }
+    g.last = cell;
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
@@ -84,15 +89,9 @@ export function Board(props: BoardProps) {
     }
   };
 
-  // Grid lines are drawn as one SVG overlay so thick region borders meet cleanly at corners.
-  const thin: string[] = [];
-  const thick: string[] = [];
-  for (let r = 0; r < n; r++)
-    for (let c = 0; c < n; c++) {
-      const i = r * n + c;
-      if (c < n - 1) (regions[i] === regions[i + 1] ? thin : thick).push(`M${c + 1} ${r}V${r + 1}`);
-      if (r < n - 1) (regions[i] === regions[i + n] ? thin : thick).push(`M${c} ${r + 1}H${c + 1}`);
-    }
+  // Thin grid lines between squares; the colors alone show the regions.
+  const lines: string[] = [];
+  for (let k = 1; k < n; k++) lines.push(`M${k} 0V${n}M0 ${k}H${n}`);
 
   return (
     <div
@@ -134,13 +133,11 @@ export function Board(props: BoardProps) {
             {m === CAT && props.celebrate && <span className="note">{(r + c) % 2 ? "♪" : "♫"}</span>}
             {m === STRIKE && <XMark className="strike" />}
             {m === CROSS && <XMark className="cross" />}
-            {m === EMPTY && props.autoCrossed.has(i) && <XMark className="auto" />}
           </div>
         );
       })}
       <svg className="grid-lines" viewBox={`0 0 ${n} ${n}`} preserveAspectRatio="none" aria-hidden="true">
-        <path d={thin.join("")} className="line-thin" />
-        <path d={thick.join("")} className="line-thick" />
+        <path d={lines.join("")} className="line-thin" />
       </svg>
     </div>
   );
@@ -152,4 +149,20 @@ function XMark({ className }: { className: string }) {
       <path d="M28 28 L72 72 M72 28 L28 72" />
     </svg>
   );
+}
+
+/** Squares on the straight path from one square to another (excluding the start). */
+function cellsBetween(n: number, from: number, to: number): number[] {
+  const r0 = Math.floor(from / n);
+  const c0 = from % n;
+  const r1 = Math.floor(to / n);
+  const c1 = to % n;
+  const steps = Math.max(Math.abs(r1 - r0), Math.abs(c1 - c0));
+  const out: number[] = [];
+  for (let k = 1; k <= steps; k++) {
+    const r = Math.round(r0 + ((r1 - r0) * k) / steps);
+    const c = Math.round(c0 + ((c1 - c0) * k) / steps);
+    out.push(r * n + c);
+  }
+  return out;
 }
