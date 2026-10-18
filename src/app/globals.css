@@ -973,16 +973,21 @@ p {
   flex-direction: column;
   gap: 6px;
   align-self: stretch;
-  background: var(--bg);
+  background: color-mix(in srgb, var(--accent, #5b7cfa) 12%, var(--card));
   border-radius: 14px;
   padding: 12px;
   text-align: left;
   font-size: 15px;
 }
 
+.how-controls > div {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 8px;
+  align-items: baseline;
+}
+
 .how-key {
-  display: inline-block;
-  min-width: 88px;
   font-weight: 700;
   color: var(--primary);
 }

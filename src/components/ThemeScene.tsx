@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect } from "react";
 import type { ChapterKey } from "@/lib/chapters";
 import { CHAPTERS } from "@/lib/chapters";
 import { ChapterEmblem } from "./ChapterEmblem";
@@ -12,6 +15,18 @@ export const SCENE_MODE: Record<ChapterKey, "light" | "dark"> = {
   moonlit: "dark",
   tuna: "light",
   lion: "light",
+};
+
+/** Top color of each scene, used for the phone's browser bar. */
+const BAR_COLOR: Record<ChapterKey, string> = {
+  kitten: "#fff0f5",
+  yarn: "#f3cdb8",
+  sunbeam: "#74c4f5",
+  catnip: "#d4f1ff",
+  fishbone: "#4cb4ea",
+  moonlit: "#110f2e",
+  tuna: "#fff7e8",
+  lion: "#ffe7a8",
 };
 
 /** Stable pseudo-random numbers so server and client render the same scene. */
@@ -45,6 +60,15 @@ function Hills({ back, front }: { back: string; front: string }) {
 /** A full-screen themed background for a chapter. */
 export function ThemeScene({ chapter }: { chapter: ChapterKey }) {
   const ch = CHAPTERS.find((c) => c.key === chapter)!;
+  useEffect(() => {
+    let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = "theme-color";
+      document.head.appendChild(meta);
+    }
+    meta.content = BAR_COLOR[chapter];
+  }, [chapter]);
   return (
     <div className={`scene scene-${chapter}`} aria-hidden="true">
       {SCENES[chapter](ch.motif)}

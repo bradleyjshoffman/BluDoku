@@ -7,7 +7,7 @@ import { generatePuzzle } from "@/lib/puzzle/generator";
 import type { Difficulty, Puzzle } from "@/lib/puzzle/types";
 import { CatIcon } from "./CatIcon";
 import { Game } from "./Game";
-import { SCENE_MODE } from "./ThemeScene";
+import { SCENE_MODE, ThemeScene } from "./ThemeScene";
 import { CHAPTERS } from "@/lib/chapters";
 
 const SIZES = [5, 6, 7, 8, 9, 10, 11];
@@ -88,6 +88,7 @@ export function RandomGame() {
         />
       ) : (
         <div className="loading">
+          <ThemeScene chapter={themeKey} />
           <CatIcon className="loading-cat" />
           <p>Herding cats…</p>
         </div>
