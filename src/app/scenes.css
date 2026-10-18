@@ -379,8 +379,272 @@
   animation: flash 0.7s ease-out forwards;
 }
 
+/* ---------- Winning ---------- */
+
+/* Every cat does a party jump in a wave across the board. */
 .board.celebrate .cat {
-  animation: bounce 0.6s ease var(--wave) 2;
+  animation: cat-party 1.1s cubic-bezier(0.3, 1.4, 0.5, 1) var(--wave) 2;
+}
+
+.board.celebrate .cell {
+  animation: cell-ripple 1s ease var(--wave);
+}
+
+.note {
+  position: absolute;
+  left: 60%;
+  top: 0;
+  z-index: 4;
+  font-size: calc(min(600px, 100vw - 28px) / var(--n) * 0.45);
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  animation: note-float 1.6s ease-out calc(var(--wave) + 0.2s) forwards;
+}
+
+.firework .fx-ring {
+  opacity: 0;
+}
+
+.firework .fx-spark {
+  animation-duration: 1s;
+}
+
+.modal-win {
+  overflow: visible;
+}
+
+.win-hero {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  margin-top: -64px;
+  display: grid;
+  place-items: center;
+}
+
+.win-glow {
+  position: absolute;
+  inset: -30px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(
+    color-mix(in srgb, var(--accent, #ffd23f) 45%, transparent) 0deg 12deg,
+    transparent 12deg 30deg
+  );
+  -webkit-mask-image: radial-gradient(circle, #000 30%, transparent 70%);
+  mask-image: radial-gradient(circle, #000 30%, transparent 70%);
+  animation: spin 9s linear infinite;
+}
+
+.win-hero .modal-cat {
+  position: relative;
+  width: 104px;
+  height: 104px;
+}
+
+.modal-cat.dance {
+  transform-origin: 50% 90%;
+  animation:
+    cat-jump 0.9s cubic-bezier(0.3, 1.3, 0.5, 1),
+    dance 1.4s ease-in-out 0.9s infinite;
+}
+
+.wave-title {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  color: var(--ink);
+}
+
+.wave-title span {
+  display: inline-block;
+  opacity: 0;
+  animation: letter-pop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) forwards;
+}
+
+.stars {
+  display: flex;
+  gap: 6px;
+  font-size: 40px;
+  line-height: 1;
+}
+
+.stars span {
+  display: inline-block;
+  opacity: 0;
+  animation: star-pop 0.55s cubic-bezier(0.3, 1.8, 0.5, 1) forwards;
+}
+
+.star-earned {
+  color: #ffc21a;
+  text-shadow:
+    0 3px 0 #e09a00,
+    0 0 16px rgba(255, 200, 40, 0.6);
+}
+
+.star-empty {
+  color: var(--line);
+}
+
+.win-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.confetti > span {
+  position: absolute;
+  pointer-events: none;
+}
+
+.confetti svg {
+  width: 100%;
+  height: 100%;
+}
+
+.popper {
+  bottom: -20px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  line-height: 1;
+  opacity: 0;
+  animation: pop-arc ease-out both;
+}
+
+.popper.from-left {
+  left: -10px;
+}
+
+.popper.from-right {
+  right: -10px;
+}
+
+.popper i {
+  display: block;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+}
+
+.rain {
+  top: -40px;
+  animation: fall linear infinite both;
+}
+
+.tile-stars {
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 1px;
+  color: #ffc21a;
+  text-shadow: 0 1px 0 #e09a00;
+}
+
+.tile-stars .dim {
+  color: var(--line);
+  text-shadow: none;
+}
+
+@keyframes cat-party {
+  0% {
+    transform: none;
+  }
+  25% {
+    transform: translateY(-28%) rotate(-12deg) scale(1.1);
+  }
+  45% {
+    transform: translateY(-34%) rotate(190deg) scale(1.1);
+  }
+  65% {
+    transform: translateY(0) rotate(360deg) scale(1.2, 0.8);
+  }
+  80% {
+    transform: rotate(360deg) scale(0.92, 1.08);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes cell-ripple {
+  0%,
+  100% {
+    filter: none;
+  }
+  40% {
+    filter: brightness(1.25) saturate(1.4);
+  }
+}
+
+@keyframes note-float {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.5);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(4px, -30%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-6px, -160%) rotate(-15deg);
+  }
+}
+
+@keyframes dance {
+  0%,
+  100% {
+    transform: rotate(0deg) translateY(0);
+  }
+  25% {
+    transform: rotate(-10deg) translateY(-8%);
+  }
+  50% {
+    transform: rotate(0deg) translateY(0) scale(1.05, 0.95);
+  }
+  75% {
+    transform: rotate(10deg) translateY(-8%);
+  }
+}
+
+@keyframes letter-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(60%) scale(0.3) rotate(-20deg);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes star-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(-120deg);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Shoot up from a bottom corner, arc over, and tumble down. */
+@keyframes pop-arc {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  45% {
+    opacity: 1;
+    transform: translate(calc(var(--dx) * 0.6), calc(var(--peak) * -1)) rotate(calc(var(--spin) * 0.5));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), -10vh) rotate(var(--spin));
+  }
 }
 
 .frame-sticker {

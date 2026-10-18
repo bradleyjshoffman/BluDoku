@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CAT, CROSS, EMPTY, getHint, STRIKE, type Hint } from "@/lib/hint";
 import type { Difficulty, Puzzle } from "@/lib/puzzle/types";
-import { formatTime, loadProgress, recordWin, updateProgress } from "@/lib/progress";
+import { formatTime, loadProgress, recordWin, starsFor, updateProgress } from "@/lib/progress";
 import { Board } from "./Board";
 import { CHAPTERS, LEVELS_PER_CHAPTER } from "@/lib/chapters";
 import { CatIcon, PawIcon } from "./CatIcon";
@@ -134,9 +134,11 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
       setJustFound(cell);
       setMarks(next);
       const cheers = ch?.cheers ?? ["Meow!", "Found one!", "Purr!"];
-      setFx({ id: ++fxId.current, cell, kind: "find", text: cheers[Math.floor(Math.random() * cheers.length)] });
+      const last = next.filter((x) => x === CAT).length === n;
+      const text = last ? "That’s everyone!" : cheers[Math.floor(Math.random() * cheers.length)];
+      setFx({ id: ++fxId.current, cell, kind: "find", text });
       buzz(35);
-      if (next.filter((x) => x === CAT).length === n) win();
+      if (last) win();
     } else {
       next[cell] = STRIKE;
       setMarks(next);
@@ -168,12 +170,14 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
 
   const win = () => {
     setStatus("won");
+    setTimeout(() => buzz([40, 60, 40, 60, 160]), 500);
     if (levelId !== undefined) {
       const prev = loadProgress().completed[levelId];
-      recordWin(levelId, elapsed);
+      recordWin(levelId, elapsed, starsFor(strikes));
       setBest({ time: prev === undefined ? elapsed : Math.min(prev, elapsed), isNew: prev === undefined || elapsed < prev });
     }
-    setTimeout(() => setShowOverlay(true), 1100);
+    // Let the board party play out before the popup.
+    setTimeout(() => setShowOverlay(true), 2000);
   };
 
   const lose = () => {
@@ -291,16 +295,17 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
           onStrokePaint={onStrokePaint}
           outfit={ch?.key}
         />
-        {fx && (
+        {(fx || status === "won") && (
           <div className="fx-layer" aria-hidden="true">
-            <FindFx
+            {status === "won" && <Fireworks sparkles={ch?.sparkles ?? ["★", "✦", "♥"]} />}
+            {fx && <FindFx
               key={fx.id}
               cell={fx.cell}
               n={n}
               kind={fx.kind}
               text={fx.text}
               sparkles={ch?.sparkles ?? ["★", "✦", "♥"]}
-            />
+            />}
           </div>
         )}
       </div>
@@ -334,17 +339,24 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
 
       {showOverlay && status === "won" && (
         <div className="overlay" role="dialog" aria-modal="true" aria-label="Puzzle solved">
-          <Confetti />
-          <div className="modal">
-            {chapterDone && ch ? (
-              <ChapterEmblem chapter={ch.key} className="modal-cat bounce" />
-            ) : (
-              <CatIcon className="modal-cat bounce" outfit={ch?.key} />
-            )}
-            <h2>{chapterDone ? "Chapter complete!" : (ch?.winTitle ?? "Purr-fect!")}</h2>
+          <Confetti sparkles={ch?.sparkles ?? ["★", "✦", "♥"]} />
+          <div className="modal modal-win">
+            <div className="win-hero">
+              <span className="win-glow" />
+              {chapterDone && ch ? (
+                <ChapterEmblem chapter={ch.key} className="modal-cat dance" />
+              ) : (
+                <CatIcon className="modal-cat dance" outfit={ch?.key} />
+              )}
+            </div>
+            <WaveTitle text={chapterDone ? "Chapter complete!" : (ch?.winTitle ?? "Purr-fect!")} />
+            <Stars count={starsFor(strikes)} />
             {chapterDone && ch && <p className="chapter-done">You conquered {ch.name}! 🎉</p>}
             <p>
-              You found all {n} cats in <strong>{formatTime(elapsed)}</strong>
+              You found all {n} cats in{" "}
+              <strong className="win-time">
+                <CountUp to={elapsed} />
+              </strong>
               {strikes === 0 && " without a single slip"}!
             </p>
             {best.time !== undefined && (
@@ -454,15 +466,122 @@ function FindFx({
   );
 }
 
-function Confetti() {
+const PARTY_COLORS = ["#ff8fab", "#ffb347", "#8fd694", "#7cc6fe", "#b69cff", "#ffd23f"];
+
+/** Fireworks of chapter sparkles bursting over the board. */
+function Fireworks({ sparkles }: { sparkles: string[] }) {
+  const bursts = [
+    { x: 25, y: 30, delay: 0.15 },
+    { x: 72, y: 22, delay: 0.45 },
+    { x: 50, y: 60, delay: 0.75 },
+    { x: 20, y: 75, delay: 1.05 },
+    { x: 80, y: 70, delay: 1.3 },
+  ];
+  return (
+    <>
+      {bursts.map((b, bi) => (
+        <div key={bi} className="fx firework" style={{ left: `${b.x}%`, top: `${b.y}%` }}>
+          <span className="fx-ring" style={{ animationDelay: `${b.delay}s`, borderColor: PARTY_COLORS[bi] }} />
+          {Array.from({ length: 14 }, (_, i) => {
+            const angle = (i / 14) * Math.PI * 2;
+            const dist = 60 + (i % 3) * 18;
+            return (
+              <span
+                key={i}
+                className="fx-spark"
+                style={{
+                  ["--dx" as string]: `${(Math.cos(angle) * dist).toFixed(1)}px`,
+                  ["--dy" as string]: `${(Math.sin(angle) * dist).toFixed(1)}px`,
+                  animationDelay: `${b.delay}s`,
+                  color: PARTY_COLORS[(i + bi) % PARTY_COLORS.length],
+                  fontSize: 22,
+                }}
+              >
+                {sparkles[i % sparkles.length]}
+              </span>
+            );
+          })}
+        </div>
+      ))}
+    </>
+  );
+}
+
+/** Title whose letters bounce in one after another. */
+function WaveTitle({ text }: { text: string }) {
+  return (
+    <h2 className="wave-title" aria-label={text}>
+      {[...text].map((ch, i) => (
+        <span key={i} aria-hidden="true" style={{ animationDelay: `${0.2 + i * 0.05}s` }}>
+          {ch === " " ? " " : ch}
+        </span>
+      ))}
+    </h2>
+  );
+}
+
+function Stars({ count }: { count: number }) {
+  return (
+    <div className="stars" aria-label={`${count} of 3 stars`}>
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className={i < count ? "star-earned" : "star-empty"}
+          style={{ animationDelay: `${0.6 + i * 0.3}s` }}
+        >
+          ★
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Counts a time up from 0:00 for a bit of drama. */
+function CountUp({ to }: { to: number }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const start = performance.now();
+    const duration = Math.min(1200, 300 + to * 20);
+    let frame = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      setShown(Math.round(to * (1 - Math.pow(1 - t, 3))));
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [to]);
+  return <>{formatTime(shown)}</>;
+}
+
+/** Party poppers from both bottom corners, plus a gentle rain of paws. */
+function Confetti({ sparkles }: { sparkles: string[] }) {
   const pieces = useMemo(
     () =>
-      Array.from({ length: 28 }, (_, i) => ({
+      Array.from({ length: 40 }, (_, i) => {
+        const fromLeft = i % 2 === 0;
+        const spread = ((i * 37) % 100) / 100;
+        return {
+          fromLeft,
+          dx: (fromLeft ? 1 : -1) * (25 + spread * 55),
+          peak: 45 + ((i * 53) % 40),
+          delay: (i % 10) * 0.04,
+          duration: 1.8 + ((i * 13) % 10) / 10,
+          color: PARTY_COLORS[i % PARTY_COLORS.length],
+          kind: i % 4,
+          spin: ((i * 97) % 720) - 360,
+        };
+      }),
+    [],
+  );
+  const rain = useMemo(
+    () =>
+      Array.from({ length: 16 }, (_, i) => ({
         left: (i * 37) % 100,
-        delay: (i % 7) * 0.18,
-        duration: 2.4 + ((i * 13) % 10) / 10,
-        color: ["#ff8fab", "#ffb347", "#8fd694", "#7cc6fe", "#b69cff"][i % 5],
-        size: 14 + ((i * 7) % 12),
+        delay: 1 + (i % 7) * 0.25,
+        duration: 3 + ((i * 13) % 10) / 10,
+        color: PARTY_COLORS[i % PARTY_COLORS.length],
+        size: 14 + ((i * 7) % 10),
       })),
     [],
   );
@@ -471,6 +590,29 @@ function Confetti() {
       {pieces.map((p, i) => (
         <span
           key={i}
+          className={`popper ${p.fromLeft ? "from-left" : "from-right"}`}
+          style={{
+            ["--dx" as string]: `${p.dx}vw`,
+            ["--peak" as string]: `${p.peak}vh`,
+            ["--spin" as string]: `${p.spin}deg`,
+            animationDelay: `${p.delay}s`,
+            animationDuration: `${p.duration}s`,
+            color: p.color,
+          }}
+        >
+          {p.kind === 0 ? (
+            <PawIcon />
+          ) : p.kind === 1 ? (
+            sparkles[i % sparkles.length]
+          ) : (
+            <i style={{ background: p.color }} />
+          )}
+        </span>
+      ))}
+      {rain.map((p, i) => (
+        <span
+          key={`r${i}`}
+          className="rain"
           style={{
             left: `${p.left}%`,
             animationDelay: `${p.delay}s`,

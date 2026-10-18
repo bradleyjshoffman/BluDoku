@@ -131,6 +131,7 @@ export function Board(props: BoardProps) {
             }}
           >
             {m === CAT && <CatIcon className="cat" outfit={props.outfit} />}
+            {m === CAT && props.celebrate && <span className="note">{(r + c) % 2 ? "♪" : "♫"}</span>}
             {m === STRIKE && <XMark className="strike" />}
             {m === CROSS && <XMark className="cross" />}
             {m === EMPTY && props.autoCrossed.has(i) && <XMark className="auto" />}

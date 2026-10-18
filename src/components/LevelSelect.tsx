@@ -24,6 +24,7 @@ export function LevelSelect() {
   }, []);
 
   const completed = progress?.completed ?? {};
+  const stars = progress?.stars ?? {};
   const nextId = LEVELS.find((l) => completed[l.id] === undefined)?.id ?? 1;
   const doneCount = Object.keys(completed).length;
   const levels = LEVELS.slice(chapter * PER_CHAPTER, (chapter + 1) * PER_CHAPTER);
@@ -103,11 +104,18 @@ export function LevelSelect() {
                 key={l.id}
                 href={`/level/${l.id}/`}
                 className={`level-tile tile-${l.difficulty}${done ? " done" : ""}${l.id === nextId && progress ? " next" : ""}`}
-                aria-label={`Level ${l.id}, ${l.difficulty}, ${l.size} by ${l.size}${done ? `, solved in ${formatTime(best)}` : ""}`}
+                aria-label={`Level ${l.id}, ${l.difficulty}, ${l.size} by ${l.size}${done ? `, solved in ${formatTime(best)}${stars[l.id] ? `, ${stars[l.id]} stars` : ""}` : ""}`}
               >
                 {l.difficulty !== "medium" && <span className="tile-badge">{l.difficulty}</span>}
                 {done ? <CatIcon className="tile-cat" outfit={ch.key} /> : <span className="tile-num">{l.id}</span>}
-                <span className="tile-sub">{done ? formatTime(best) : `${l.size}×${l.size}`}</span>
+                {done && stars[l.id] ? (
+                  <span className="tile-stars" aria-hidden="true">
+                    {"★".repeat(stars[l.id])}
+                    <span className="dim">{"★".repeat(3 - stars[l.id])}</span>
+                  </span>
+                ) : (
+                  <span className="tile-sub">{done ? formatTime(best) : `${l.size}×${l.size}`}</span>
+                )}
               </Link>
             );
           })}

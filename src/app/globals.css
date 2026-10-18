@@ -1004,16 +1004,6 @@ p {
   z-index: 1;
 }
 
-.confetti span {
-  position: absolute;
-  top: -40px;
-  animation: fall linear infinite;
-}
-
-.confetti svg {
-  width: 100%;
-  height: 100%;
-}
 
 /* ---------- Animations ---------- */
 

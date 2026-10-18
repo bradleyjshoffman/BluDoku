@@ -11,9 +11,11 @@ export interface Progress {
   /** Level id → in-progress board: one digit per cell ("0" empty, "1" X, "2" cat, "3" strike) and seconds played. */
   boards: Record<number, { m: string; t: number }>;
   autoX: boolean;
+  /** Level id → best star rating (1–3). */
+  stars: Record<number, number>;
 }
 
-const empty = (): Progress => ({ completed: {}, boards: {}, autoX: true });
+const empty = (): Progress => ({ completed: {}, boards: {}, autoX: true, stars: {} });
 
 export function loadProgress(): Progress {
   try {
@@ -39,10 +41,16 @@ export function updateProgress(fn: (p: Progress) => void) {
   save(p);
 }
 
-export function recordWin(levelId: number, seconds: number) {
+/** Stars for a win: 3 with no wrong guesses, one fewer per wrong guess. */
+export function starsFor(strikes: number): number {
+  return Math.max(1, 3 - strikes);
+}
+
+export function recordWin(levelId: number, seconds: number, stars: number) {
   updateProgress((p) => {
     const prev = p.completed[levelId];
     p.completed[levelId] = prev === undefined ? seconds : Math.min(prev, seconds);
+    p.stars[levelId] = Math.max(p.stars[levelId] ?? 0, stars);
     delete p.boards[levelId];
   });
 }
