@@ -66,8 +66,18 @@ html {
 }
 
 body {
-  overflow-x: clip;
   overscroll-behavior-y: none;
+}
+
+/*
+ * Effects like the sparkle burst can fly past the screen edge. Clipping on body
+ * isn't enough (it gets handed to the viewport, and phones zoom out to fit wide
+ * content), so a plain wrapper does the clipping.
+ */
+.app {
+  overflow-x: hidden;
+  overflow-x: clip;
+  min-height: 100vh;
 }
 
 body {

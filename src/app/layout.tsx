@@ -21,7 +21,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={fredoka.className}>{children}</body>
+      <body className={fredoka.className}>
+        {/* Clips effects that fly past the screen edge, so phones never zoom out to fit them. */}
+        <div className="app">{children}</div>
+      </body>
     </html>
   );
 }
