@@ -82,8 +82,15 @@ export function Board(props: BoardProps) {
     }
   };
 
-  const border = (i: number, j: number | null) =>
-    j === null || regions[i] !== regions[j] ? "var(--border-thick)" : "var(--border-thin)";
+  // Grid lines are drawn as one SVG overlay so thick region borders meet cleanly at corners.
+  const thin: string[] = [];
+  const thick: string[] = [];
+  for (let r = 0; r < n; r++)
+    for (let c = 0; c < n; c++) {
+      const i = r * n + c;
+      if (c < n - 1) (regions[i] === regions[i + 1] ? thin : thick).push(`M${c + 1} ${r}V${r + 1}`);
+      if (r < n - 1) (regions[i] === regions[i + n] ? thin : thick).push(`M${c} ${r + 1}H${c + 1}`);
+    }
 
   return (
     <div
@@ -103,8 +110,6 @@ export function Board(props: BoardProps) {
       {marks.map((m, i) => {
         const r = Math.floor(i / n);
         const c = i % n;
-        const right = c < n - 1 ? i + 1 : null;
-        const below = r < n - 1 ? i + n : null;
         const classes = ["cell"];
         if (props.hintFocus.has(i)) classes.push("hint-focus");
         if (props.hintArea.size && !props.hintArea.has(i)) classes.push("hint-dim");
@@ -120,18 +125,28 @@ export function Board(props: BoardProps) {
             }`}
             style={{
               background: REGION_COLORS[regions[i]].fill,
-              borderRight: right === null ? "none" : `${border(i, right)}`,
-              borderBottom: below === null ? "none" : `${border(i, below)}`,
               ["--wave" as string]: `${(r + c) * 45}ms`,
             }}
           >
             {m === CAT && <CatIcon className="cat" />}
-            {m === STRIKE && <span className="mark strike">✕</span>}
-            {m === CROSS && <span className="mark cross">✕</span>}
-            {m === EMPTY && props.autoCrossed.has(i) && <span className="mark auto">✕</span>}
+            {m === STRIKE && <XMark className="strike" />}
+            {m === CROSS && <XMark className="cross" />}
+            {m === EMPTY && props.autoCrossed.has(i) && <XMark className="auto" />}
           </div>
         );
       })}
+      <svg className="grid-lines" viewBox={`0 0 ${n} ${n}`} preserveAspectRatio="none" aria-hidden="true">
+        <path d={thin.join("")} className="line-thin" />
+        <path d={thick.join("")} className="line-thick" />
+      </svg>
     </div>
+  );
+}
+
+function XMark({ className }: { className: string }) {
+  return (
+    <svg viewBox="0 0 100 100" className={`mark ${className}`} aria-hidden="true">
+      <path d="M28 28 L72 72 M72 28 L28 72" />
+    </svg>
   );
 }

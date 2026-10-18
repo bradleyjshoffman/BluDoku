@@ -11,8 +11,6 @@
   --easy: #3fb67f;
   --medium: #e6a23c;
   --hard: #ff6b6b;
-  --border-thick: 3px solid #3d3450;
-  --border-thin: 1px solid rgba(61, 52, 80, 0.16);
   --shadow: 0 6px 0 rgba(61, 52, 80, 0.08), 0 12px 30px rgba(61, 52, 80, 0.08);
   --radius: 20px;
   --tile: #fff7ef;
@@ -534,6 +532,7 @@ p {
 }
 
 .board {
+  position: relative;
   display: grid;
   width: 100%;
   aspect-ratio: 1;
@@ -570,26 +569,49 @@ p {
 .mark {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  line-height: 1;
-  font-size: calc(min(560px, 100vw - 44px) / var(--n) * 0.42);
+  width: 100%;
+  height: 100%;
   pointer-events: none;
+  fill: none;
+  stroke-linecap: round;
 }
 
 .mark.cross {
-  color: rgba(61, 52, 80, 0.6);
+  stroke: rgba(61, 52, 80, 0.78);
+  stroke-width: 9;
 }
 
 .mark.auto {
-  color: rgba(61, 52, 80, 0.25);
-  font-size: calc(min(560px, 100vw - 44px) / var(--n) * 0.32);
+  stroke: rgba(61, 52, 80, 0.42);
+  stroke-width: 7;
 }
 
 .mark.strike {
-  color: #e5394f;
+  stroke: #e5394f;
+  stroke-width: 11;
   animation: strike 0.4s ease;
+}
+
+.grid-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  fill: none;
+  stroke-linecap: round;
+}
+
+.line-thin {
+  stroke: rgba(61, 52, 80, 0.16);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+.line-thick {
+  stroke: #3d3450;
+  stroke-width: 3px;
+  vector-effect: non-scaling-stroke;
 }
 
 .cell.hint-dim {
