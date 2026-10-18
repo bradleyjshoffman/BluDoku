@@ -21,34 +21,30 @@ import numpy as np
 import soundfile as sf
 from kokoro_onnx import Kokoro
 
+# Cheers are fixed by how many cats are left, so every level builds to the same
+# climax: "cheer-1" is always the second-to-last cat, "win" is the last cat.
+# Each line: (text, speed), at most two words. Later lines are delivered a touch faster.
 LINES = {
-    # Finding a cat: enthusiasm builds as more cats are found.
-    "find-1a": "Nice!",
-    "find-1b": "Yes!",
-    "find-1c": "Ooh!",
-    "find-1d": "Good one!",
-    "find-2a": "Wow!",
-    "find-2b": "Amazing!",
-    "find-2c": "Fantastic!",
-    "find-2d": "Brilliant!",
-    "find-3a": "Incredible!",
-    "find-3b": "Unbelievable!",
-    "find-3c": "Spectacular!",
-    "find-3d": "Phenomenal!",
-    # Winning.
-    "win-a": "You did it! Absolutely incredible!",
-    "win-b": "Oh my gosh! You're a genius!",
-    "win-c": "Purrfect! Simply legendary!",
-    "win-d": "Wow, wow, wow! You're amazing!",
+    "cheer-10": ("Nice!", 1.0),
+    "cheer-9": ("Good one!", 1.0),
+    "cheer-8": ("Yay!", 1.02),
+    "cheer-7": ("Brilliant!", 1.03),
+    "cheer-6": ("Wow!", 1.04),
+    "cheer-5": ("Amazing!", 1.05),
+    "cheer-4": ("Fantastic!", 1.07),
+    "cheer-3": ("Spectacular!", 1.08),
+    "cheer-2": ("Incredible!", 1.09),
+    "cheer-1": ("Unbelievable!", 1.1),
+    "win": ("INSANE!", 0.92),
 }
 
 model_dir = Path(sys.argv[1])
-voice = sys.argv[2] if len(sys.argv) > 2 else "af_bella"
+voice = sys.argv[2] if len(sys.argv) > 2 else "af_heart"
 out_dir = Path(__file__).resolve().parent.parent / "public" / "sounds"
 
 kokoro = Kokoro(str(model_dir / "kokoro-v1.0.onnx"), str(model_dir / "voices-v1.0.bin"))
-for name, text in LINES.items():
-    samples, rate = kokoro.create(text, voice=voice, speed=1.05, lang="en-us")
+for name, (text, speed) in LINES.items():
+    samples, rate = kokoro.create(text, voice=voice, speed=speed, lang="en-us")
     # Normalize loudness so every clip plays at a similar volume.
     peak = float(np.max(np.abs(samples))) or 1.0
     samples = samples / peak * 0.9

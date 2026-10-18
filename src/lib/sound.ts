@@ -6,17 +6,16 @@
  * (Browsers can't see Android's silent mode; the in-game toggle covers that.)
  */
 
-const VOICE = {
-  find: [
-    ["find-1a", "find-1b", "find-1c", "find-1d"],
-    ["find-2a", "find-2b", "find-2c", "find-2d"],
-    ["find-3a", "find-3b", "find-3c", "find-3d"],
-  ],
-  win: ["win-a", "win-b", "win-c", "win-d"],
-};
+/**
+ * Voice cheers are fixed by how many cats are left: "cheer-1" is always the
+ * second-to-last cat, "cheer-2" the one before, and so on, so every level
+ * escalates to the same climax. The last cat gets the "win" cheer.
+ */
+const MAX_CHEER = 10;
+const CLIPS = [...Array.from({ length: MAX_CHEER }, (_, i) => `cheer-${i + 1}`), "win"];
 
 /** Bump when the clips are re-recorded so phones don't keep playing cached copies. */
-const VOICE_VERSION = "kokoro-bella-1";
+const VOICE_VERSION = "kokoro-heart-7";
 
 /** Pentatonic scale: each cat found chimes a little higher. */
 const SCALE = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51, 1567.98, 1760, 2093];
@@ -53,8 +52,7 @@ export function unlockAudio() {
 }
 
 function loadClips() {
-  const names = [...VOICE.find.flat(), ...VOICE.win];
-  for (const name of names) {
+  for (const name of CLIPS) {
     fetch(`/sounds/${name}.wav?v=${VOICE_VERSION}`)
       .then((r) => r.arrayBuffer())
       .then((data) => ctx!.decodeAudioData(data))
@@ -69,8 +67,6 @@ function ready(): AudioContext | null {
   if (!enabled || !ctx || !master || ctx.state !== "running") return null;
   return ctx;
 }
-
-const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
 
 function tone(
   freq: number,
@@ -104,7 +100,7 @@ function voice(name: string, delay: number, volume = 1) {
   src.start(c.currentTime + delay);
 }
 
-/** A cat was found: a pop, a rising chime, and a cheer that gets more excited as you go. */
+/** A cat was found: a pop, a rising chime, and a cheer that gets more excited as the end nears. */
 export function playFind(foundSoFar: number, total: number) {
   const c = ready();
   if (!c) return;
@@ -115,10 +111,8 @@ export function playFind(foundSoFar: number, total: number) {
   tone(note, t + 0.04, 0.22, { volume: 0.22 });
   tone(note * 1.5, t + 0.1, 0.28, { volume: 0.16 });
   tone(note * 2, t + 0.16, 0.3, { type: "sine", volume: 0.1 });
-  if (foundSoFar < total) {
-    const tier = progress < 0.34 ? 0 : progress < 0.67 ? 1 : 2;
-    voice(pick(VOICE.find[tier]), 0.12);
-  }
+  const left = total - foundSoFar;
+  if (left > 0) voice(`cheer-${Math.min(left, MAX_CHEER)}`, 0.12);
 }
 
 /** A wrong guess: a sad little bonk and a hiss. */
@@ -148,14 +142,15 @@ export function playStrike() {
 export function playWin() {
   const c = ready();
   if (!c) return;
-  const t = c.currentTime + 0.25;
+  // "INSANE!" right away, like every other cheer; the fanfare follows it.
+  voice("win", 0.12);
+  const t = c.currentTime + 0.7;
   const fanfare = [523.25, 659.25, 783.99, 1046.5];
   fanfare.forEach((f, i) => tone(f, t + i * 0.11, 0.2, { volume: 0.24 }));
   // Big final chord.
   for (const f of [1046.5, 1318.51, 1567.98, 2093]) tone(f, t + 0.48, 0.9, { volume: 0.12 });
   // Sparkly glissando.
   for (let i = 0; i < 10; i++) tone(SCALE[i], t + 0.55 + i * 0.045, 0.18, { type: "sine", volume: 0.07 });
-  voice(pick(VOICE.win), 0.9);
 }
 
 /** One ding per star as they pop into the win popup. */
