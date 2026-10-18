@@ -36,6 +36,12 @@ The puzzle engine is in `src/lib/puzzle/`:
 - `logic.ts` is a human-style solver used to grade difficulty and power hints.
 - `levels.ts` holds the level plan: sizes and easy/medium/hard order.
 
+## Voice clips
+
+The cheers in `public/sounds/` are generated with [Kokoro](https://github.com/thewh1teagle/kokoro-onnx),
+an open-source (Apache 2.0) text-to-speech model that runs locally. Setup and usage are at the top of
+`scripts/make-voices.py`. After recording, run `node scripts/trim-sounds.mjs` to cut the silence.
+
 ## Free hosting
 
 `npm run build` produces a plain static site in `out/`, so it runs on any free static host.
