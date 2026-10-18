@@ -43,7 +43,7 @@ LINES = {
 }
 
 model_dir = Path(sys.argv[1])
-voice = sys.argv[2] if len(sys.argv) > 2 else "af_heart"
+voice = sys.argv[2] if len(sys.argv) > 2 else "af_bella"
 out_dir = Path(__file__).resolve().parent.parent / "public" / "sounds"
 
 kokoro = Kokoro(str(model_dir / "kokoro-v1.0.onnx"), str(model_dir / "voices-v1.0.bin"))
