@@ -15,6 +15,9 @@ const VOICE = {
   win: ["win-a", "win-b", "win-c", "win-d"],
 };
 
+/** Bump when the clips are re-recorded so phones don't keep playing cached copies. */
+const VOICE_VERSION = "kokoro-heart-1";
+
 /** Pentatonic scale: each cat found chimes a little higher. */
 const SCALE = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51, 1567.98, 1760, 2093];
 
@@ -52,7 +55,7 @@ export function unlockAudio() {
 function loadClips() {
   const names = [...VOICE.find.flat(), ...VOICE.win];
   for (const name of names) {
-    fetch(`/sounds/${name}.wav`)
+    fetch(`/sounds/${name}.wav?v=${VOICE_VERSION}`)
       .then((r) => r.arrayBuffer())
       .then((data) => ctx!.decodeAudioData(data))
       .then((buf) => clips.set(name, buf))

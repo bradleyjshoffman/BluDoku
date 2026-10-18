@@ -11,6 +11,7 @@ Setup (once):
 Run:
     kokoro-env/Scripts/python scripts/make-voices.py <folder with the model files> [voice]
     node scripts/trim-sounds.mjs
+Then bump VOICE_VERSION in src/lib/sound.ts so phones fetch the new clips.
 """
 
 import sys
