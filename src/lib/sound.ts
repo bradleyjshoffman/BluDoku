@@ -15,7 +15,7 @@ const MAX_CHEER = 10;
 const CLIPS = [...Array.from({ length: MAX_CHEER }, (_, i) => `cheer-${i + 1}`), "win"];
 
 /** Bump when the clips are re-recorded so phones don't keep playing cached copies. */
-const VOICE_VERSION = "kokoro-heart-7";
+const VOICE_VERSION = "brad-1";
 
 /** Pentatonic scale: each cat found chimes a little higher. */
 const SCALE = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51, 1567.98, 1760, 2093];

@@ -38,9 +38,17 @@ The puzzle engine is in `src/lib/puzzle/`:
 
 ## Voice clips
 
-The cheers in `public/sounds/` are generated with [Kokoro](https://github.com/thewh1teagle/kokoro-onnx),
-an open-source (Apache 2.0) text-to-speech model that runs locally. Setup and usage are at the top of
-`scripts/make-voices.py`. After recording, run `node scripts/trim-sounds.mjs` to cut the silence.
+The cheers in `public/sounds/` are recorded by hand. To re-record, say the 11 lines in order with about
+a one-second pause between them (listed at the top of `scripts/split-recording.py`), then run:
+
+```bash
+python scripts/split-recording.py "path/to/Recording.m4a"
+```
+
+It finds the pauses, cuts each line, evens out the volume and writes the clips. Then bump
+`VOICE_VERSION` in `src/lib/sound.ts` so phones fetch the new clips.
+
+`scripts/make-voices.py` can instead generate the clips with the open-source Kokoro text-to-speech model.
 
 ## Free hosting
 
