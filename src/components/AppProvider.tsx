@@ -115,7 +115,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const toast = useCallback((t: Omit<Toast, "id">) => {
     const id = ++toastId.current;
-    setToasts((list) => [...list.slice(-2), { ...t, id }]);
+    setToasts((list) => [...list.slice(-1), { ...t, id }]);
     setTimeout(() => setToasts((list) => list.filter((x) => x.id !== id)), 3800);
   }, []);
 

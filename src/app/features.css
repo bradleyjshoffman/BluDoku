@@ -2,9 +2,10 @@
 
 /* ---------- Toasts ---------- */
 
+/* Bottom of the screen, so pop-ups never hide the board or the cat you just found. */
 .toasts {
   position: fixed;
-  top: max(12px, env(safe-area-inset-top));
+  bottom: max(16px, calc(env(safe-area-inset-bottom) + 10px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 60;
@@ -55,14 +56,14 @@
 @keyframes toast-in {
   from {
     opacity: 0;
-    transform: translateY(-20px) scale(0.9);
+    transform: translateY(20px) scale(0.9);
   }
 }
 
 @keyframes toast-out {
   to {
     opacity: 0;
-    transform: translateY(-12px);
+    transform: translateY(12px);
   }
 }
 
