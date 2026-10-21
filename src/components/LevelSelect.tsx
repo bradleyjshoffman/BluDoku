@@ -169,7 +169,12 @@ export function LevelSelect() {
 /** Today's daily puzzle: number, difficulty, streak and whether it's done. */
 function DailyCard({ progress }: { progress: Progress | null }) {
   const [today, setToday] = useState<string | null>(null);
-  useEffect(() => setToday(dateKey()), []);
+  useEffect(() => {
+    setToday(dateKey());
+    // Fetch the daily puzzles in the background so the offline copy has them too.
+    const t = setTimeout(() => void import("@/data/daily.json").catch(() => {}), 3000);
+    return () => clearTimeout(t);
+  }, []);
   if (!today) return <div className="card daily-card placeholder" />;
   const plan = planFor(today);
   const result = progress?.daily[today];
