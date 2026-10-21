@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Achievement } from "@/lib/achievements";
 import type { Breed } from "@/lib/cats";
 import { CHAPTERS, LEVELS_PER_CHAPTER } from "@/lib/chapters";
-import { currentStreak, msUntilTomorrow, shareResultText, shareText } from "@/lib/daily";
+import { currentStreak, msUntilTomorrow, shareText, shareWithFeedback } from "@/lib/daily";
 import { CAT, CROSS, EMPTY, getHint, STRIKE, type Hint } from "@/lib/hint";
 import { assignColors } from "@/lib/palette";
 import { formatTime, loadProgress, puzzleSignature, starsFor, updateProgress } from "@/lib/progress";
@@ -260,7 +260,7 @@ export function Game({ puzzle, title, difficulty, mode, chapter, golden = false 
       streak: currentStreak(loadProgress()),
       url: `${window.location.origin}/daily/`,
     });
-    if ((await shareResultText(text)) === "copied") toast({ icon: "📋", title: "Copied!", detail: "Paste it anywhere to share" });
+    await shareWithFeedback(text, toast);
   };
 
   const hintFocus = useMemo(() => new Set(hint?.focus ?? []), [hint]);

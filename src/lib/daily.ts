@@ -96,16 +96,33 @@ export function shareText(opts: { number: number; stars: number; time: string; s
   return lines.join("\n");
 }
 
-/** Opens the share sheet (phones) or copies to the clipboard. */
-export async function shareResultText(text: string): Promise<"shared" | "copied" | "failed"> {
-  try {
-    if (navigator.share) {
+/**
+ * Opens the share sheet (phones), falling back to copying. "cancelled" means the player
+ * closed the share sheet themselves; "failed" means neither way worked.
+ */
+export async function shareResultText(text: string): Promise<"shared" | "copied" | "cancelled" | "failed"> {
+  if (typeof navigator.share === "function") {
+    try {
       await navigator.share({ text });
       return "shared";
+    } catch (e) {
+      if ((e as Error)?.name === "AbortError") return "cancelled";
+      // Share sheet unavailable here: fall through to copying.
     }
+  }
+  try {
     await navigator.clipboard.writeText(text);
     return "copied";
   } catch {
     return "failed";
+  }
+}
+
+/** Shares a result and tells the player what happened. */
+export async function shareWithFeedback(text: string, toast: (t: { icon: string; title: string; detail?: string }) => void) {
+  const outcome = await shareResultText(text);
+  if (outcome === "copied") toast({ icon: "📋", title: "Copied!", detail: "Paste it anywhere to share" });
+  if (outcome === "failed") {
+    toast({ icon: "📸", title: "Couldn't share from this browser", detail: `Screenshot it instead: ${text.split("\n")[0]}` });
   }
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CHAPTERS } from "@/lib/chapters";
-import { currentStreak, dailyNumber, dailySeed, dateKey, planFor, shareResultText, shareText } from "@/lib/daily";
+import { currentStreak, dailyNumber, dailySeed, dateKey, planFor, shareText, shareWithFeedback } from "@/lib/daily";
 import { formatTime, loadProgress, type DailyResult } from "@/lib/progress";
 import { generatePuzzle } from "@/lib/puzzle/generator";
 import type { Difficulty, Puzzle } from "@/lib/puzzle/types";
@@ -95,7 +95,7 @@ function DailyDone({
       streak: currentStreak(loadProgress()),
       url: `${window.location.origin}/daily/`,
     });
-    if ((await shareResultText(text)) === "copied") toast({ icon: "📋", title: "Copied!", detail: "Paste it anywhere to share" });
+    await shareWithFeedback(text, toast);
   };
   return (
     <div className={`daily-done theme-${SCENE_MODE[key]}`}>
