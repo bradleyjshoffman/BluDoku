@@ -58,7 +58,7 @@ function Hills({ back, front }: { back: string; front: string }) {
 }
 
 /** A full-screen themed background for a chapter. */
-export function ThemeScene({ chapter }: { chapter: ChapterKey }) {
+export function ThemeScene({ chapter, golden = false }: { chapter: ChapterKey; golden?: boolean }) {
   const ch = CHAPTERS.find((c) => c.key === chapter)!;
   useEffect(() => {
     let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
@@ -72,6 +72,30 @@ export function ThemeScene({ chapter }: { chapter: ChapterKey }) {
   return (
     <div className={`scene scene-${chapter}`} aria-hidden="true">
       {SCENES[chapter](ch.motif)}
+      {golden && <GoldenSparkles />}
+    </div>
+  );
+}
+
+/** A 3-starred chapter: drifting gold sparkles over the scene. */
+function GoldenSparkles() {
+  return (
+    <div className="golden-layer">
+      {range(26).map((i) => (
+        <span
+          key={i}
+          className="gold-spark"
+          style={{
+            left: `${r2(rand(i, 41) * 100)}%`,
+            top: `${r2(rand(i, 42) * 100)}%`,
+            fontSize: `${r2(10 + rand(i, 43) * 16)}px`,
+            animationDelay: `${r2(-rand(i, 44) * 6)}s`,
+            animationDuration: `${r2(3 + rand(i, 45) * 4)}s`,
+          }}
+        >
+          {i % 3 === 0 ? "★" : "✦"}
+        </span>
+      ))}
     </div>
   );
 }

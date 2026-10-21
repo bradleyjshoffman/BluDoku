@@ -84,7 +84,7 @@ export function RandomGame() {
           title="Random puzzle"
           difficulty={difficulty}
           chapter={chapterForSeed(seed ?? 0)}
-          onNewPuzzle={() => go(size, difficulty, newSeed())}
+          mode={{ kind: "random", onNewPuzzle: () => go(size, difficulty, newSeed()) }}
         />
       ) : (
         <div className="loading">

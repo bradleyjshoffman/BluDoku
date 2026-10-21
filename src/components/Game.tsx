@@ -2,91 +2,109 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CAT, CROSS, EMPTY, getHint, STRIKE, type Hint } from "@/lib/hint";
-import type { Difficulty, Puzzle } from "@/lib/puzzle/types";
-import { formatTime, loadProgress, puzzleSignature, recordWin, starsFor, updateProgress } from "@/lib/progress";
-import { playFind, playStars, playStrike, playWin, setSoundEnabled, unlockAudio } from "@/lib/sound";
-import { Board } from "./Board";
+import type { Achievement } from "@/lib/achievements";
+import type { Breed } from "@/lib/cats";
 import { CHAPTERS, LEVELS_PER_CHAPTER } from "@/lib/chapters";
+import { currentStreak, msUntilTomorrow, shareResultText, shareText } from "@/lib/daily";
+import { CAT, CROSS, EMPTY, getHint, STRIKE, type Hint } from "@/lib/hint";
 import { assignColors } from "@/lib/palette";
+import { formatTime, loadProgress, puzzleSignature, starsFor, updateProgress } from "@/lib/progress";
+import type { Difficulty, Puzzle } from "@/lib/puzzle/types";
+import { recordFind, recordWin, type Unlocks, type WinTarget } from "@/lib/rewards";
+import { playFind, playStars, playStrike, playWin } from "@/lib/sound";
+import { useApp } from "./AppProvider";
+import { Board } from "./Board";
 import { CatIcon, PawIcon } from "./CatIcon";
 import { ChapterEmblem } from "./ChapterEmblem";
 import { SCENE_MODE, ThemeScene } from "./ThemeScene";
-import { HowToPlay } from "./HowToPlay";
 
 export const MAX_STRIKES = 3;
+
+export type GameMode =
+  | { kind: "level"; id: number; nextHref?: string }
+  | { kind: "daily"; date: string; number: number }
+  | { kind: "random"; onNewPuzzle: () => void };
 
 interface GameProps {
   puzzle: Puzzle;
   title: string;
   difficulty: Difficulty;
-  /** Fixed levels save progress; random puzzles don't. */
-  levelId?: number;
-  nextHref?: string;
-  onNewPuzzle?: () => void;
-  /** Chapter index, for theming fixed levels. */
+  mode: GameMode;
+  /** Chapter index, for theming. */
   chapter?: number;
+  /** The chapter has 3 stars on every level: show it off. */
+  golden?: boolean;
 }
 
 type Status = "playing" | "won" | "lost";
 
-export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle, chapter }: GameProps) {
+export function Game({ puzzle, title, difficulty, mode, chapter, golden = false }: GameProps) {
   const n = puzzle.size;
+  const { settings, setShowSettings, showSettings, toast } = useApp();
   const ch = chapter === undefined ? null : CHAPTERS[chapter];
-  const chapterDone = ch !== null && levelId !== undefined && levelId % LEVELS_PER_CHAPTER === 0;
+  const saveKey = mode.kind === "level" ? String(mode.id) : mode.kind === "daily" ? `daily-${mode.date}` : null;
+  const chapterDone = mode.kind === "level" && ch !== null && mode.id % LEVELS_PER_CHAPTER === 0;
   const colors = useMemo(() => assignColors(n, puzzle.regions), [n, puzzle.regions]);
   const blank = useMemo(() => new Array<number>(n * n).fill(EMPTY), [n]);
   const [marks, setMarks] = useState<number[]>(blank);
   const [history, setHistory] = useState<number[][]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [status, setStatus] = useState<Status>("playing");
+  const [paused, setPaused] = useState(false);
   const [hint, setHint] = useState<Hint | null>(null);
-  const [sound, setSound] = useState(true);
+  const [hintsUsed, setHintsUsed] = useState(0);
   const [shaking, setShaking] = useState(false);
   const [justFound, setJustFound] = useState<number | null>(null);
   const [showOverlay, setShowOverlay] = useState(false);
   const [best, setBest] = useState<{ time?: number; isNew: boolean }>({ isNew: false });
-  const [showHelp, setShowHelp] = useState(false);
+  const [unlocks, setUnlocks] = useState<Unlocks>({ achievements: [], cats: [] });
   const [fx, setFx] = useState<{ id: number; cell: number; kind: "find" | "miss"; text: string } | null>(null);
   const fxId = useRef(0);
   const loaded = useRef(false);
   // The first tap of a double-tap toggles an X; the guess undoes that toggle.
   const pendingTap = useRef<{ cell: number; before: number[] } | null>(null);
 
-  // Restore saved settings and any in-progress board after mount (localStorage is client-only).
+  // Restore any in-progress board after mount (localStorage is client-only).
   useEffect(() => {
-    const p = loadProgress();
-    setSound(p.sound);
-    setSoundEnabled(p.sound);
-    if (levelId !== undefined) {
-      const saved = p.boards[levelId];
+    if (saveKey) {
+      const saved = loadProgress().boards[saveKey];
       if (saved && saved.m.length === n * n && savedBoardFits(saved, puzzle)) {
         setMarks([...saved.m].map(Number));
         setElapsed(saved.t);
       }
     }
     loaded.current = true;
-  }, [levelId, n]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveKey, n]);
 
   const strikes = marks.filter((m) => m === STRIKE).length;
   const found = marks.filter((m) => m === CAT).length;
+  const live = status === "playing" && !paused && !showSettings;
 
   useEffect(() => {
-    if (status !== "playing") return;
+    if (!live) return;
     const t = setInterval(() => {
       if (document.visibilityState === "visible") setElapsed((s) => s + 1);
     }, 1000);
     return () => clearInterval(t);
-  }, [status]);
+  }, [live]);
 
-  // Save the in-progress board for fixed levels.
+  // Save the in-progress board.
   useEffect(() => {
-    if (!loaded.current || levelId === undefined || status !== "playing") return;
+    if (!loaded.current || !saveKey || status !== "playing") return;
     updateProgress((p) => {
-      if (marks.every((m) => m === EMPTY)) delete p.boards[levelId];
-      else p.boards[levelId] = { m: marks.join(""), t: elapsed, s: puzzleSignature(puzzle.regions, puzzle.solution) };
+      if (marks.every((m) => m === EMPTY)) delete p.boards[saveKey];
+      else p.boards[saveKey] = { m: marks.join(""), t: elapsed, s: puzzleSignature(puzzle.regions, puzzle.solution) };
     });
-  }, [marks, elapsed, levelId, status]);
+  }, [marks, elapsed, saveKey, status, puzzle]);
+
+  const announce = useCallback(
+    (u: Unlocks) => {
+      for (const a of u.achievements) toast({ icon: a.icon, title: `Trophy: ${a.name}`, detail: a.description });
+      for (const c of u.cats) toast({ icon: <CatIcon breed={c.id} />, title: `New cat: ${c.name}!`, detail: "Say hi in the Cat Café" });
+    },
+    [toast],
+  );
 
   const pushHistory = useCallback(() => setHistory((h) => [...h.slice(-199), marks]), [marks]);
 
@@ -125,7 +143,9 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
       setFx({ id: ++fxId.current, cell, kind: "find", text });
       buzz(35);
       playFind(next.filter((x) => x === CAT).length, n);
-      if (last) win();
+      const findUnlocks = recordFind();
+      if (last) win(findUnlocks);
+      else announce(findUnlocks);
     } else {
       next[cell] = STRIKE;
       setMarks(next);
@@ -156,17 +176,28 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
     });
   };
 
-  const win = () => {
+  const win = (findUnlocks: Unlocks) => {
     setStatus("won");
     setTimeout(() => buzz([40, 60, 40, 60, 160]), 500);
     playWin();
-    if (levelId !== undefined) {
-      const prev = loadProgress().completed[levelId];
-      recordWin(levelId, elapsed, starsFor(strikes));
+    const target: WinTarget =
+      mode.kind === "level" ? { kind: "level", id: mode.id } : mode.kind === "daily" ? { kind: "daily", date: mode.date } : { kind: "random" };
+    const earned = starsFor(strikes);
+    const rec = recordWin(
+      target,
+      { mode: mode.kind, size: n, time: elapsed, strikes, hintsUsed, hour: new Date().getHours() },
+      earned,
+      saveKey ?? undefined,
+    );
+    setUnlocks({
+      achievements: [...findUnlocks.achievements, ...rec.achievements],
+      cats: [...findUnlocks.cats, ...rec.cats],
+    });
+    if (mode.kind !== "random") {
+      const prev = rec.previousBest;
       setBest({ time: prev === undefined ? elapsed : Math.min(prev, elapsed), isNew: prev === undefined || elapsed < prev });
     }
     // Let the board party play out before the popup; stars ding as they pop in.
-    const earned = starsFor(strikes);
     setTimeout(() => {
       setShowOverlay(true);
       playStars(earned, 0.6, 0.3);
@@ -175,7 +206,7 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
 
   const lose = () => {
     setStatus("lost");
-    if (levelId !== undefined) updateProgress((p) => delete p.boards[levelId]);
+    if (saveKey) updateProgress((p) => delete p.boards[saveKey]);
     setTimeout(() => setShowOverlay(true), 600);
   };
 
@@ -203,43 +234,55 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
     setHistory([]);
     setElapsed(0);
     setHint(null);
+    setHintsUsed(0);
     setStatus("playing");
     setShowOverlay(false);
     setJustFound(null);
   };
 
-  const toggleSound = () => {
-    const v = !sound;
-    setSound(v);
-    setSoundEnabled(v);
-    updateProgress((p) => (p.sound = v));
-  };
-
   const showHint = () => {
     if (status !== "playing") return;
     setHint(getHint(puzzle, marks, colors));
+    setHintsUsed((h) => h + 1);
+  };
+
+  const openSettings = () => {
+    if (status === "playing") setPaused(true);
+    setShowSettings(true);
+  };
+
+  const share = async () => {
+    if (mode.kind !== "daily") return;
+    const text = shareText({
+      number: mode.number,
+      stars: starsFor(strikes),
+      time: formatTime(elapsed),
+      streak: currentStreak(loadProgress()),
+      url: `${window.location.origin}/daily/`,
+    });
+    if ((await shareResultText(text)) === "copied") toast({ icon: "📋", title: "Copied!", detail: "Paste it anywhere to share" });
   };
 
   const hintFocus = useMemo(() => new Set(hint?.focus ?? []), [hint]);
   const hintArea = useMemo(() => new Set(hint?.area ?? []), [hint]);
+  const sparkles = ch?.sparkles ?? ["★", "✦", "♥"];
 
   return (
     <div
-      onPointerUpCapture={unlockAudio}
-      onKeyDownCapture={unlockAudio}
       className={`game theme-${ch ? SCENE_MODE[ch.key] : "plain"}`}
-      style={ch ? { ["--accent" as string]: ch.accent, ["--frame" as string]: ch.frame } : undefined}
+      style={ch ? { ["--accent" as string]: ch.accent, ["--frame" as string]: golden ? "#c99a1a" : ch.frame } : undefined}
     >
-      {ch && <ThemeScene chapter={ch.key} />}
+      {ch && <ThemeScene chapter={ch.key} golden={golden} />}
       <header className="game-header">
         <Link href="/" className="icon-btn" aria-label="Back to levels">
           ←
         </Link>
         <div className="game-title">
           {ch && (
-            <div className="game-chapter">
+            <div className={`game-chapter${golden ? " golden" : ""}`}>
               <ChapterEmblem chapter={ch.key} className="game-chapter-art" />
-              {ch.name}
+              {golden && "👑 "}
+              {mode.kind === "daily" ? `Daily #${mode.number}` : ch.name}
             </div>
           )}
           <h1>{title}</h1>
@@ -248,20 +291,20 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
             <span>
               {n}×{n}
             </span>
-            <span className="timer">⏱ {formatTime(elapsed)}</span>
+            {settings.showTimer && <span className="timer">⏱ {formatTime(elapsed)}</span>}
           </div>
         </div>
         <div className="header-actions">
           <button
             className="icon-btn"
-            onClick={toggleSound}
-            aria-label={sound ? "Mute sounds" : "Turn sounds on"}
-            aria-pressed={!sound}
+            onClick={() => setPaused(true)}
+            aria-label="Pause"
+            disabled={status !== "playing"}
           >
-            {sound ? "🔊" : "🔇"}
+            ⏸
           </button>
-          <button className="icon-btn" onClick={() => setShowHelp(true)} aria-label="How to play">
-            ?
+          <button className="icon-btn" onClick={openSettings} aria-label="Settings">
+            ⚙
           </button>
         </div>
       </header>
@@ -283,7 +326,7 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
         </div>
       </div>
 
-      <div className={`board-wrap${shaking ? " shake" : ""}`}>
+      <div className={`board-wrap${shaking ? " shake" : ""}${paused ? " is-paused" : ""}`}>
         {ch && <ChapterEmblem chapter={ch.key} className="frame-sticker" />}
         <Board
           size={n}
@@ -294,7 +337,7 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
           hintArea={hintArea}
           justFound={justFound}
           celebrate={status === "won"}
-          disabled={status !== "playing"}
+          disabled={!live}
           onTap={onTap}
           onDoubleTap={onDoubleTap}
           onStrokeStart={onStrokeStart}
@@ -303,15 +346,17 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
         />
         {(fx || status === "won") && (
           <div className="fx-layer" aria-hidden="true">
-            {status === "won" && <Fireworks sparkles={ch?.sparkles ?? ["★", "✦", "♥"]} />}
-            {fx && <FindFx
-              key={fx.id}
-              cell={fx.cell}
-              n={n}
-              kind={fx.kind}
-              text={fx.text}
-              sparkles={ch?.sparkles ?? ["★", "✦", "♥"]}
-            />}
+            {status === "won" && <Fireworks sparkles={sparkles} />}
+            {fx && <FindFx key={fx.id} cell={fx.cell} n={n} kind={fx.kind} text={fx.text} sparkles={sparkles} />}
+          </div>
+        )}
+        {paused && (
+          <div className="pause-cover">
+            <CatIcon className="pause-cat" sleepy outfit={ch?.key} />
+            <strong>Paused</strong>
+            <button className="btn btn-primary" onClick={() => setPaused(false)}>
+              ▶ Resume
+            </button>
           </div>
         )}
       </div>
@@ -326,13 +371,13 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
       </div>
 
       <div className="controls">
-        <button className="btn" onClick={undo} disabled={!history.length || status !== "playing"}>
+        <button className="btn" onClick={undo} disabled={!history.length || !live}>
           ↶ Undo
         </button>
-        <button className="btn" onClick={clearCrosses} disabled={status !== "playing" || !marks.includes(CROSS)}>
+        <button className="btn" onClick={clearCrosses} disabled={!live || !marks.includes(CROSS)}>
           Clear X’s
         </button>
-        <button className="btn btn-accent" onClick={showHint} disabled={status !== "playing"}>
+        <button className="btn btn-accent" onClick={showHint} disabled={!live}>
           💡 Hint
         </button>
       </div>
@@ -340,7 +385,7 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
 
       {showOverlay && status === "won" && (
         <div className="overlay" role="dialog" aria-modal="true" aria-label="Puzzle solved">
-          <Confetti sparkles={ch?.sparkles ?? ["★", "✦", "♥"]} />
+          <Confetti sparkles={sparkles} />
           <div className="modal modal-win">
             <div className="win-hero">
               <span className="win-glow" />
@@ -363,19 +408,26 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
             {best.time !== undefined && (
               <p className="best">{best.isNew ? "🏆 New best time!" : `Best: ${formatTime(best.time)}`}</p>
             )}
+            {mode.kind === "daily" && <DailyFooter />}
+            <UnlockList unlocks={unlocks} />
             <div className="modal-actions">
-              {nextHref && (
-                <Link href={nextHref} className="btn btn-primary">
+              {mode.kind === "daily" && (
+                <button className="btn btn-primary" onClick={share}>
+                  📤 Share result
+                </button>
+              )}
+              {mode.kind === "level" && mode.nextHref && (
+                <Link href={mode.nextHref} className="btn btn-primary">
                   Next level →
                 </Link>
               )}
-              {onNewPuzzle && (
-                <button className="btn btn-primary" onClick={onNewPuzzle}>
+              {mode.kind === "random" && (
+                <button className="btn btn-primary" onClick={mode.onNewPuzzle}>
                   New puzzle
                 </button>
               )}
               <Link href="/" className="btn">
-                All levels
+                {mode.kind === "level" ? "All levels" : "Home"}
               </Link>
               <button className="btn btn-ghost" onClick={() => setShowOverlay(false)}>
                 Admire board
@@ -395,21 +447,65 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
               <button className="btn btn-primary" onClick={restart}>
                 Try again
               </button>
-              {onNewPuzzle && (
-                <button className="btn" onClick={onNewPuzzle}>
+              {mode.kind === "random" && (
+                <button className="btn" onClick={mode.onNewPuzzle}>
                   New puzzle
                 </button>
               )}
               <Link href="/" className="btn">
-                All levels
+                Home
               </Link>
             </div>
           </div>
         </div>
       )}
-
-      {showHelp && <HowToPlay onClose={() => setShowHelp(false)} />}
     </div>
+  );
+}
+
+/** Streak and countdown under a solved daily puzzle. */
+export function DailyFooter() {
+  const [streak, setStreak] = useState(0);
+  const [left, setLeft] = useState(msUntilTomorrow());
+  useEffect(() => {
+    setStreak(currentStreak(loadProgress()));
+    const t = setInterval(() => setLeft(msUntilTomorrow()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const s = Math.floor(left / 1000);
+  const hms = `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  return (
+    <div className="daily-footer">
+      {streak > 0 && <span className="streak-flame">🔥 {streak}-day streak</span>}
+      <span>Next puzzle in {hms}</span>
+    </div>
+  );
+}
+
+/** Trophies and cats earned by this win. */
+function UnlockList({ unlocks }: { unlocks: Unlocks }) {
+  if (!unlocks.achievements.length && !unlocks.cats.length) return null;
+  return (
+    <ul className="unlock-list">
+      {unlocks.cats.map((c: Breed) => (
+        <li key={c.id} className="unlock new-cat">
+          <CatIcon breed={c.id} className="unlock-cat" />
+          <span>
+            <strong>New cat: {c.name}!</strong>
+            <small>Pick them in the Cat Café</small>
+          </span>
+        </li>
+      ))}
+      {unlocks.achievements.map((a: Achievement) => (
+        <li key={a.id} className="unlock">
+          <span className="unlock-icon">{a.icon}</span>
+          <span>
+            <strong>{a.name}</strong>
+            <small>{a.description}</small>
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Fredoka } from "next/font/google";
 import "./globals.css";
 import "./scenes.css";
+import "./features.css";
+import { AppProvider } from "@/components/AppProvider";
 
 const fredoka = Fredoka({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
@@ -23,7 +25,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className={fredoka.className}>
         {/* Clips effects that fly past the screen edge, so phones never zoom out to fit them. */}
-        <div className="app">{children}</div>
+        <div className="app">
+          <AppProvider>{children}</AppProvider>
+        </div>
       </body>
     </html>
   );

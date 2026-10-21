@@ -5,26 +5,55 @@
 
 const KEY = "bludoku:v1";
 
+export interface DailyResult {
+  /** Seconds taken. */
+  t: number;
+  /** Stars earned (1–3). */
+  s: number;
+}
+
 export interface Progress {
   /** Level id → best time in seconds. */
   completed: Record<number, number>;
   /**
-   * Level id → in-progress board: one digit per cell ("0" empty, "1" X, "2" cat, "3" strike),
-   * seconds played, and a fingerprint of the puzzle it belongs to.
+   * Save key (a level id, or "daily-YYYY-MM-DD") → in-progress board: one digit per cell
+   * ("0" empty, "1" X, "2" cat, "3" strike), seconds played, and a puzzle fingerprint.
    */
-  boards: Record<number, { m: string; t: number; s?: string }>;
+  boards: Record<string, { m: string; t: number; s?: string }>;
   /** Level id → best star rating (1–3). */
   stars: Record<number, number>;
+  /** Daily puzzle results by local date "YYYY-MM-DD". */
+  daily: Record<string, DailyResult>;
+  /** Achievement id → when it was earned (ms since epoch). */
+  achievements: Record<string, number>;
+  stats: { catsFound: number; randomSolved: number };
+  /** Chosen cat breed id. */
+  cat: string;
   sound: boolean;
+  music: boolean;
+  showTimer: boolean;
 }
 
-const empty = (): Progress => ({ completed: {}, boards: {}, stars: {}, sound: true });
+const empty = (): Progress => ({
+  completed: {},
+  boards: {},
+  stars: {},
+  daily: {},
+  achievements: {},
+  stats: { catsFound: 0, randomSolved: 0 },
+  cat: "blu",
+  sound: true,
+  music: true,
+  showTimer: true,
+});
 
 export function loadProgress(): Progress {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return empty();
-    return { ...empty(), ...JSON.parse(raw) };
+    const saved = JSON.parse(raw);
+    const base = empty();
+    return { ...base, ...saved, stats: { ...base.stats, ...saved.stats } };
   } catch {
     return empty();
   }
@@ -38,24 +67,16 @@ function save(p: Progress) {
   }
 }
 
-export function updateProgress(fn: (p: Progress) => void) {
+export function updateProgress(fn: (p: Progress) => void): Progress {
   const p = loadProgress();
   fn(p);
   save(p);
+  return p;
 }
 
 /** Stars for a win: 3 with no wrong guesses, one fewer per wrong guess. */
 export function starsFor(strikes: number): number {
   return Math.max(1, 3 - strikes);
-}
-
-export function recordWin(levelId: number, seconds: number, stars: number) {
-  updateProgress((p) => {
-    const prev = p.completed[levelId];
-    p.completed[levelId] = prev === undefined ? seconds : Math.min(prev, seconds);
-    p.stars[levelId] = Math.max(p.stars[levelId] ?? 0, stars);
-    delete p.boards[levelId];
-  });
 }
 
 /** Short fingerprint of a puzzle, so a saved board is never loaded onto a changed level. */

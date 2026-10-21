@@ -42,13 +42,18 @@ export function unlockAudio() {
     }
     const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) return;
-    ctx = new Ctor();
+    try {
+      ctx = new Ctor();
+    } catch {
+      return; // audio blocked (e.g. a strict privacy mode): play silently
+    }
     master = ctx.createGain();
     master.gain.value = 0.8;
     master.connect(ctx.destination);
     loadClips();
   }
-  if (ctx.state === "suspended") void ctx.resume();
+  if (ctx.state === "suspended") void ctx.resume().then(() => startMusic());
+  else startMusic();
 }
 
 function loadClips() {
@@ -163,4 +168,136 @@ export function playStars(count: number, firstDelay: number, gap: number) {
     tone(f, t + firstDelay + i * gap, 0.35, { type: "sine", volume: 0.2 });
     tone(f * 2, t + firstDelay + i * gap + 0.02, 0.25, { type: "sine", volume: 0.06 });
   }
+}
+
+/* ---------- Background music ---------- */
+
+/**
+ * A cozy lo-fi loop composed in code: soft pads over a four-chord progression
+ * (Fmaj7, Em7, Dm7, Cmaj7), a gentle bass, music-box plucks that wander a little
+ * differently each time round, and a quiet brush on the off-beats.
+ * It has its own volume, so muting sound effects doesn't mute it (and vice versa).
+ */
+const TEMPO = 72;
+const EIGHTH = 60 / TEMPO / 2;
+const CHORDS = [
+  { bass: 41, pad: [53, 57, 60, 64] },
+  { bass: 40, pad: [52, 55, 59, 62] },
+  { bass: 38, pad: [50, 53, 57, 60] },
+  { bass: 36, pad: [48, 52, 55, 59] },
+];
+const MELODY = [72, 74, 76, 79, 81, 84, 86, 88];
+const midi = (n: number) => 440 * 2 ** ((n - 69) / 12);
+
+let musicWanted = false;
+let musicOut: GainNode | null = null;
+let musicTimer: ReturnType<typeof setInterval> | null = null;
+let step = 0;
+let nextStepTime = 0;
+let melodyAt = 3;
+
+export function setMusicEnabled(on: boolean) {
+  musicWanted = on;
+  if (on) startMusic();
+  else stopMusic();
+}
+
+function startMusic() {
+  if (!musicWanted || !ctx || ctx.state !== "running" || musicTimer) return;
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+  musicOut = ctx.createGain();
+  musicOut.gain.setValueAtTime(0.0001, ctx.currentTime);
+  musicOut.gain.exponentialRampToValueAtTime(0.55, ctx.currentTime + 2);
+  const warmth = ctx.createBiquadFilter();
+  warmth.type = "lowpass";
+  warmth.frequency.value = 2200;
+  musicOut.connect(warmth).connect(ctx.destination);
+  step = 0;
+  nextStepTime = ctx.currentTime + 0.1;
+  musicTimer = setInterval(scheduleMusic, 60);
+}
+
+function stopMusic() {
+  if (musicTimer) clearInterval(musicTimer);
+  musicTimer = null;
+  if (ctx && musicOut) {
+    const out = musicOut;
+    out.gain.cancelScheduledValues(ctx.currentTime);
+    out.gain.setValueAtTime(out.gain.value, ctx.currentTime);
+    out.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
+    setTimeout(() => out.disconnect(), 800);
+  }
+  musicOut = null;
+}
+
+/** Tiny deterministic random so each loop of the melody wanders differently. */
+function noise01(n: number) {
+  const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+function musicNote(freq: number, start: number, dur: number, vol: number, type: OscillatorType, attack: number) {
+  const c = ctx!;
+  const osc = c.createOscillator();
+  const g = c.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, start);
+  g.gain.exponentialRampToValueAtTime(vol, start + attack);
+  g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  osc.connect(g).connect(musicOut!);
+  osc.start(start);
+  osc.stop(start + dur + 0.05);
+}
+
+function scheduleMusic() {
+  if (!ctx || !musicOut) return;
+  while (nextStepTime < ctx.currentTime + 0.3) {
+    const t = nextStepTime;
+    const bar = Math.floor(step / 8);
+    const beat = step % 8;
+    const chord = CHORDS[bar % CHORDS.length];
+    if (beat === 0) {
+      const barLen = EIGHTH * 8;
+      for (const n of chord.pad) {
+        musicNote(midi(n), t, barLen + 0.8, 0.018, "triangle", 0.6);
+        musicNote(midi(n) * 1.003, t, barLen + 0.8, 0.012, "sine", 0.7);
+      }
+    }
+    if (beat === 0 || beat === 4 || (beat === 7 && noise01(bar) > 0.6)) {
+      musicNote(midi(chord.bass), t, beat === 7 ? 0.35 : 0.9, 0.07, "triangle", 0.02);
+    }
+    // Music-box melody: a gentle random walk over the scale.
+    const r = noise01(step * 1.7 + 3);
+    if (r < (beat % 2 === 0 ? 0.42 : 0.18)) {
+      melodyAt = Math.max(0, Math.min(MELODY.length - 1, melodyAt + Math.round((noise01(step + 99) - 0.5) * 4)));
+      musicNote(midi(MELODY[melodyAt]), t, 1.1, 0.03, "sine", 0.006);
+      musicNote(midi(MELODY[melodyAt]) * 2, t, 0.5, 0.006, "sine", 0.004);
+    }
+    // Brushed snare on beats 2 and 4.
+    if (beat === 2 || beat === 6) {
+      const len = Math.floor(ctx.sampleRate * 0.12);
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 2;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const hp = ctx.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.value = 5000;
+      const g = ctx.createGain();
+      g.gain.value = 0.025;
+      src.connect(hp).connect(g).connect(musicOut);
+      src.start(t);
+    }
+    step++;
+    nextStepTime += EIGHTH;
+  }
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") stopMusic();
+    else startMusic();
+  });
 }

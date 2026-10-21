@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { Game } from "@/components/Game";
+import { LevelGame } from "@/components/LevelGame";
 import { chapterIndexOf } from "@/lib/chapters";
 import { LEVEL_COUNT } from "@/lib/puzzle/levels";
 import { getLevel } from "@/lib/levelData";
@@ -22,12 +22,9 @@ export default async function LevelPage({ params }: { params: Promise<{ id: stri
   if (!level) notFound();
   return (
     <main className="page">
-      <Game
+      <LevelGame
         key={level.id}
-        puzzle={level}
-        title={`Level ${level.id}`}
-        difficulty={level.difficulty}
-        levelId={level.id}
+        level={level}
         chapter={chapterIndexOf(level.id)}
         nextHref={level.id < LEVEL_COUNT ? `/level/${level.id + 1}/` : undefined}
       />

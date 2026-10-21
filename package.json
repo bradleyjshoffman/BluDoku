@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "npx serve out",
-    "generate-levels": "tsx scripts/generate-levels.ts"
+    "generate-levels": "tsx scripts/generate-levels.ts",
+    "generate-daily": "tsx scripts/generate-daily.ts"
   },
   "dependencies": {
     "next": "^16.4.2",

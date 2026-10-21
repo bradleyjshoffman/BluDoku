@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CHAPTERS, LEVELS_PER_CHAPTER as PER_CHAPTER } from "@/lib/chapters";
 import { LEVELS } from "@/lib/levelData";
+import { chapterPerfect, chapterStars } from "@/lib/cats";
+import { currentStreak, dailyNumber, dateKey, planFor } from "@/lib/daily";
 import { formatTime, loadProgress, type Progress } from "@/lib/progress";
+import { useApp } from "./AppProvider";
 import { CatIcon, PawIcon } from "./CatIcon";
 import { ChapterEmblem } from "./ChapterEmblem";
 import { HowToPlay } from "./HowToPlay";
@@ -14,6 +17,7 @@ export function LevelSelect() {
   const [progress, setProgress] = useState<Progress | null>(null);
   const [chapter, setChapter] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
+  const { setShowSettings } = useApp();
 
   useEffect(() => {
     const p = loadProgress();
@@ -29,10 +33,12 @@ export function LevelSelect() {
   const doneCount = Object.keys(completed).length;
   const levels = LEVELS.slice(chapter * PER_CHAPTER, (chapter + 1) * PER_CHAPTER);
   const ch = CHAPTERS[chapter];
+  const golden = progress ? chapterPerfect(progress, chapter) : false;
+  const starsHere = progress ? chapterStars(progress, chapter) : 0;
 
   return (
     <div className={`home theme-${SCENE_MODE[ch.key]}`} style={{ ["--accent" as string]: ch.accent }}>
-      <ThemeScene chapter={ch.key} />
+      <ThemeScene chapter={ch.key} golden={golden} />
       <header className="hero">
         <CatIcon className="hero-cat" outfit={ch.key} />
         <h1>
@@ -46,38 +52,57 @@ export function LevelSelect() {
           <Link href="/random/" className="btn btn-big">
             🎲 Random puzzle
           </Link>
-          <button className="btn btn-ghost" onClick={() => setShowHelp(true)}>
-            How to play
-          </button>
         </div>
         <p className="progress-line">
           <PawIcon className="paw-inline" /> {doneCount} / {LEVELS.length} levels solved
         </p>
       </header>
 
+      <DailyCard progress={progress} />
+
+      <nav className="home-nav" aria-label="More">
+        <Link href="/cats/" className="nav-tile">
+          <CatIcon className="nav-cat" />
+          Cat Café
+        </Link>
+        <Link href="/trophies/" className="nav-tile">
+          <span className="nav-emoji">🏆</span>
+          Trophies
+        </Link>
+        <button className="nav-tile" onClick={() => setShowSettings(true)}>
+          <span className="nav-emoji">⚙️</span>
+          Settings
+        </button>
+      </nav>
+
       <nav className="chapters" aria-label="Chapters">
         {CHAPTERS.map((ch, i) => {
           const ids = LEVELS.slice(i * PER_CHAPTER, (i + 1) * PER_CHAPTER).map((l) => l.id);
           const done = ids.filter((id) => completed[id] !== undefined).length;
+          const perfect = progress ? chapterPerfect(progress, i) : false;
+          const starCount = progress ? chapterStars(progress, i) : 0;
           return (
             <button
               key={ch.key}
-              className={`chapter${i === chapter ? " active" : ""}${done === ids.length ? " complete" : ""}`}
+              className={`chapter${i === chapter ? " active" : ""}${done === ids.length ? " complete" : ""}${perfect ? " golden" : ""}`}
               style={{ ["--accent" as string]: ch.accent }}
               onClick={() => setChapter(i)}
               aria-pressed={i === chapter}
             >
               <ChapterEmblem chapter={ch.key} className="chapter-emblem" />
-              <span className="chapter-name">{ch.name}</span>
+              <span className="chapter-name">
+                {perfect && "👑 "}
+                {ch.name}
+              </span>
               <span className="chapter-count">
-                {done}/{ids.length}
+                {done}/{ids.length} · ⭐{starCount}
               </span>
             </button>
           );
         })}
       </nav>
 
-      <section className="card chapter-card" style={{ ["--accent" as string]: ch.accent }}>
+      <section className={`card chapter-card${golden ? " golden" : ""}`} style={{ ["--accent" as string]: ch.accent }}>
         <div
           className="chapter-banner"
           style={{
@@ -90,8 +115,17 @@ export function LevelSelect() {
             <span className="chapter-kicker">
               Chapter {chapter + 1} · Levels {chapter * PER_CHAPTER + 1}–{(chapter + 1) * PER_CHAPTER}
             </span>
-            <h2>{ch.name}</h2>
-            <p>{ch.tagline}</p>
+            <h2>
+              {golden && "👑 "}
+              {ch.name}
+            </h2>
+            <p>{golden ? "Every level 3-starred. Perfection!" : ch.tagline}</p>
+            <div className="chapter-stars" aria-label={`${starsHere} of ${PER_CHAPTER * 3} stars`}>
+              <span className="chapter-stars-bar">
+                <span style={{ width: `${(starsHere / (PER_CHAPTER * 3)) * 100}%` }} />
+              </span>
+              ⭐ {starsHere}/{PER_CHAPTER * 3}
+            </div>
           </div>
           <ChapterEmblem chapter={ch.key} className="chapter-banner-art" />
         </div>
@@ -129,5 +163,34 @@ export function LevelSelect() {
       <footer className="footer">Made with 🐾 · Progress is saved in this browser.</footer>
       {showHelp && <HowToPlay onClose={() => setShowHelp(false)} />}
     </div>
+  );
+}
+
+/** Today's daily puzzle: number, difficulty, streak and whether it's done. */
+function DailyCard({ progress }: { progress: Progress | null }) {
+  const [today, setToday] = useState<string | null>(null);
+  useEffect(() => setToday(dateKey()), []);
+  if (!today) return <div className="card daily-card placeholder" />;
+  const plan = planFor(today);
+  const result = progress?.daily[today];
+  const streak = progress ? currentStreak(progress, today) : 0;
+  const weekday = new Date().toLocaleDateString(undefined, { weekday: "long" });
+  return (
+    <Link href="/daily/" className={`card daily-card${result ? " solved" : ""}`}>
+      <span className="daily-badge">
+        <small>Daily</small>#{dailyNumber(today)}
+      </span>
+      <span className="daily-text">
+        <strong>{result ? "Solved today! 🎉" : `${weekday}’s puzzle`}</strong>
+        <small>
+          {result
+            ? `${"⭐".repeat(result.s)} in ${formatTime(result.t)} · come back tomorrow`
+            : `${plan.difficulty} · ${plan.size}×${plan.size} · same puzzle for everyone`}
+        </small>
+      </span>
+      <span className="daily-streak" aria-label={`${streak}-day streak`}>
+        🔥<b>{streak}</b>
+      </span>
+    </Link>
   );
 }
