@@ -15,6 +15,7 @@ function withUnlocks(change: (p: Progress) => void, win?: WinResult): { p: Progr
     const achievements = awardAchievements(p, win);
     // Some cats unlock by trophy count, so check cats after awarding.
     const cats = BREEDS.filter((b) => !catsBefore.has(b.id) && isUnlocked(b, p));
+    for (const c of cats) if (!p.seenCats.includes(c.id)) p.seenCats.push(c.id);
     unlocks = { achievements, cats };
   });
   return { p, unlocks };
@@ -53,4 +54,25 @@ export function recordWin(target: WinTarget, result: WinResult, stars: number, s
     if (saveKey) delete p.boards[saveKey];
   }, result);
   return { ...unlocks, previousBest };
+}
+
+/**
+ * Progress made before trophies and cats existed (or on another version) earns them
+ * retroactively: award state-based trophies and list cats not yet announced.
+ * Mutates `p`; returns what's newly unlocked.
+ */
+export function catchUpProgress(p: Progress): Unlocks {
+  const achievements = awardAchievements(p);
+  const cats = BREEDS.filter((b) => b.unlock.kind !== "start" && isUnlocked(b, p) && !p.seenCats.includes(b.id));
+  for (const c of cats) p.seenCats.push(c.id);
+  return { achievements, cats };
+}
+
+/** Runs the catch-up against saved progress. */
+export function catchUp(): Unlocks {
+  let unlocks: Unlocks = { achievements: [], cats: [] };
+  updateProgress((p) => {
+    unlocks = catchUpProgress(p);
+  });
+  return unlocks;
 }

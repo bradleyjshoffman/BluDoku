@@ -29,6 +29,8 @@ export interface Progress {
   stats: { catsFound: number; randomSolved: number };
   /** Chosen cat breed id. */
   cat: string;
+  /** Cats whose unlock has already been announced. */
+  seenCats: string[];
   sound: boolean;
   music: boolean;
   showTimer: boolean;
@@ -42,6 +44,7 @@ const empty = (): Progress => ({
   achievements: {},
   stats: { catsFound: 0, randomSolved: 0 },
   cat: "blu",
+  seenCats: [],
   sound: true,
   music: true,
   showTimer: true,

@@ -2,8 +2,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { loadProgress, updateProgress } from "@/lib/progress";
+import { catchUp } from "@/lib/rewards";
 import { setMusicEnabled, setSoundEnabled, unlockAudio } from "@/lib/sound";
-import { BreedContext } from "./CatIcon";
+import { BreedContext, CatIcon } from "./CatIcon";
 import { SettingsModal } from "./SettingsModal";
 
 export interface Settings {
@@ -57,6 +58,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCatState(p.cat);
     setSoundEnabled(p.sound);
     setMusicEnabled(p.music);
+  }, []);
+
+  // Welcome back: progress from before trophies and cats existed earns them now.
+  useEffect(() => {
+    const { achievements, cats } = catchUp();
+    if (!achievements.length && !cats.length) return;
+    const names = [...cats.map((c) => c.name), ...achievements.map((a) => a.name)];
+    const shown = names.length > 4 ? `${names.slice(0, 4).join(", ")} and ${names.length - 4} more` : names.join(", ");
+    setTimeout(
+      () =>
+        toast({
+          icon: cats.length ? <CatIcon breed={cats[0].id} /> : achievements[0].icon,
+          title: "Welcome back! Your progress unlocked:",
+          detail: shown,
+        }),
+      600,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Browsers only allow audio after a tap; wake it (and the music) on the first one anywhere.

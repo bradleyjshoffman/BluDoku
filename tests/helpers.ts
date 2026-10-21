@@ -10,6 +10,7 @@ export function makeProgress(over: Partial<Progress> = {}): Progress {
     achievements: {},
     stats: { catsFound: 0, randomSolved: 0 },
     cat: "blu",
+    seenCats: [],
     sound: true,
     music: true,
     showTimer: true,
