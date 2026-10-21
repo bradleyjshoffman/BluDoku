@@ -339,10 +339,6 @@ p {
   transform: scale(1.12);
 }
 
-.chapter.complete .chapter-count::after {
-  content: " ★";
-  color: #f5b301;
-}
 
 .chapter-card {
   padding-top: 0;
