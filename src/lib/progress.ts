@@ -8,8 +8,11 @@ const KEY = "bludoku:v1";
 export interface Progress {
   /** Level id → best time in seconds. */
   completed: Record<number, number>;
-  /** Level id → in-progress board: one digit per cell ("0" empty, "1" X, "2" cat, "3" strike) and seconds played. */
-  boards: Record<number, { m: string; t: number }>;
+  /**
+   * Level id → in-progress board: one digit per cell ("0" empty, "1" X, "2" cat, "3" strike),
+   * seconds played, and a fingerprint of the puzzle it belongs to.
+   */
+  boards: Record<number, { m: string; t: number; s?: string }>;
   /** Level id → best star rating (1–3). */
   stars: Record<number, number>;
   sound: boolean;
@@ -53,6 +56,13 @@ export function recordWin(levelId: number, seconds: number, stars: number) {
     p.stars[levelId] = Math.max(p.stars[levelId] ?? 0, stars);
     delete p.boards[levelId];
   });
+}
+
+/** Short fingerprint of a puzzle, so a saved board is never loaded onto a changed level. */
+export function puzzleSignature(regions: number[], solution: number[]): string {
+  let h = 5381;
+  for (const v of [...regions, -1, ...solution]) h = (Math.imul(h, 33) ^ (v + 7)) >>> 0;
+  return h.toString(36);
 }
 
 export function formatTime(seconds: number): string {

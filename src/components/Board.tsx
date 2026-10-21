@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { CAT, CROSS, EMPTY, STRIKE } from "@/lib/hint";
-import { REGION_COLORS } from "@/lib/palette";
+import type { RegionColor } from "@/lib/palette";
 import type { ChapterKey } from "@/lib/chapters";
 import { CatIcon } from "./CatIcon";
 
@@ -22,6 +22,8 @@ interface BoardProps {
   onStrokeStart: () => void;
   onStrokePaint: (cell: number, mode: "paint" | "erase") => void;
   outfit?: ChapterKey;
+  /** Color of each region, indexed by region id. */
+  colors: RegionColor[];
 }
 
 export function Board(props: BoardProps) {
@@ -121,11 +123,11 @@ export function Board(props: BoardProps) {
             data-cell={i}
             className={classes.join(" ")}
             role="gridcell"
-            aria-label={`Row ${r + 1}, column ${c + 1}, ${REGION_COLORS[regions[i]].name}${
+            aria-label={`Row ${r + 1}, column ${c + 1}, ${props.colors[regions[i]].name}${
               m === CAT ? ", cat" : m === STRIKE ? ", wrong guess" : m === CROSS ? ", crossed out" : ""
             }`}
             style={{
-              background: REGION_COLORS[regions[i]].fill,
+              background: props.colors[regions[i]].fill,
               ["--wave" as string]: `${(r + c) * 45}ms`,
             }}
           >

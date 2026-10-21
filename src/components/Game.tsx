@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CAT, CROSS, EMPTY, getHint, STRIKE, type Hint } from "@/lib/hint";
 import type { Difficulty, Puzzle } from "@/lib/puzzle/types";
-import { formatTime, loadProgress, recordWin, starsFor, updateProgress } from "@/lib/progress";
+import { formatTime, loadProgress, puzzleSignature, recordWin, starsFor, updateProgress } from "@/lib/progress";
 import { playFind, playStars, playStrike, playWin, setSoundEnabled, unlockAudio } from "@/lib/sound";
 import { Board } from "./Board";
 import { CHAPTERS, LEVELS_PER_CHAPTER } from "@/lib/chapters";
+import { assignColors } from "@/lib/palette";
 import { CatIcon, PawIcon } from "./CatIcon";
 import { ChapterEmblem } from "./ChapterEmblem";
 import { SCENE_MODE, ThemeScene } from "./ThemeScene";
@@ -33,6 +34,7 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
   const n = puzzle.size;
   const ch = chapter === undefined ? null : CHAPTERS[chapter];
   const chapterDone = ch !== null && levelId !== undefined && levelId % LEVELS_PER_CHAPTER === 0;
+  const colors = useMemo(() => assignColors(n, puzzle.regions), [n, puzzle.regions]);
   const blank = useMemo(() => new Array<number>(n * n).fill(EMPTY), [n]);
   const [marks, setMarks] = useState<number[]>(blank);
   const [history, setHistory] = useState<number[][]>([]);
@@ -58,7 +60,7 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
     setSoundEnabled(p.sound);
     if (levelId !== undefined) {
       const saved = p.boards[levelId];
-      if (saved && saved.m.length === n * n) {
+      if (saved && saved.m.length === n * n && savedBoardFits(saved, puzzle)) {
         setMarks([...saved.m].map(Number));
         setElapsed(saved.t);
       }
@@ -82,7 +84,7 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
     if (!loaded.current || levelId === undefined || status !== "playing") return;
     updateProgress((p) => {
       if (marks.every((m) => m === EMPTY)) delete p.boards[levelId];
-      else p.boards[levelId] = { m: marks.join(""), t: elapsed };
+      else p.boards[levelId] = { m: marks.join(""), t: elapsed, s: puzzleSignature(puzzle.regions, puzzle.solution) };
     });
   }, [marks, elapsed, levelId, status]);
 
@@ -215,7 +217,7 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
 
   const showHint = () => {
     if (status !== "playing") return;
-    setHint(getHint(puzzle, marks));
+    setHint(getHint(puzzle, marks, colors));
   };
 
   const hintFocus = useMemo(() => new Set(hint?.focus ?? []), [hint]);
@@ -286,6 +288,7 @@ export function Game({ puzzle, title, difficulty, levelId, nextHref, onNewPuzzle
         <Board
           size={n}
           regions={puzzle.regions}
+          colors={colors}
           marks={marks}
           hintFocus={hintFocus}
           hintArea={hintArea}
@@ -625,4 +628,23 @@ function Confetti({ sparkles }: { sparkles: string[] }) {
       ))}
     </div>
   );
+}
+
+/**
+ * Whether a saved board belongs to this puzzle. Older saves have no fingerprint: keep
+ * them only if they hold at least one cat and every cat and wrong guess still fits.
+ */
+function savedBoardFits(saved: { m: string; s?: string }, puzzle: Puzzle): boolean {
+  if (saved.s) return saved.s === puzzleSignature(puzzle.regions, puzzle.solution);
+  const n = puzzle.size;
+  let cats = 0;
+  for (let i = 0; i < saved.m.length; i++) {
+    const isCat = puzzle.solution[Math.floor(i / n)] === i % n;
+    if (saved.m[i] === String(CAT)) {
+      if (!isCat) return false;
+      cats++;
+    }
+    if (saved.m[i] === String(STRIKE) && isCat) return false;
+  }
+  return cats > 0;
 }

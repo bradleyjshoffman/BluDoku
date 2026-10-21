@@ -44,6 +44,15 @@ function growRegions(n: number, solution: number[], rng: Rng, skew: number): num
   order.forEach((g, row) => (regions[row * n + solution[row]] = g));
   const appetite = Array.from({ length: n }, () => Math.pow(rng() + 0.05, skew));
   let remaining = n * n - n;
+  // First, every region claims one neighbor so none starts out stranded as a lone square.
+  for (const g of shuffle(rng, Array.from({ length: n }, (_, i) => i))) {
+    const seed = solution.findIndex((c, r) => regions[r * n + c] === g);
+    const free = orthoNeighbors(n, seed * n + solution[seed]).filter((j) => regions[j] === -1);
+    if (free.length) {
+      regions[free[randInt(rng, free.length)]] = g;
+      remaining--;
+    }
+  }
   while (remaining > 0) {
     // Pick a region weighted by appetite, then a random free neighbor of it.
     const frontier: number[][] = Array.from({ length: n }, () => []);
@@ -113,33 +122,70 @@ function makeUnique(n: number, regions: number[], solution: number[], rng: Rng):
       rng,
       alt.map((c, r) => r * n + c).filter((i) => !catCells.has(i)),
     );
+    // Prefer moves that keep every color at two squares or more; fall back to any move
+    // (fixSingles repairs one-square colors afterwards).
     let moved = false;
-    for (const cell of targets) {
-      const from = regions[cell];
-      if (!staysConnected(n, regions, from, cell)) continue;
-      const options = shuffle(
-        rng,
-        [...new Set(orthoNeighbors(n, cell).map((j) => regions[j]))].filter((g) => g !== from),
-      );
-      if (!options.length) continue;
-      regions[cell] = options[0];
-      moved = true;
-      break;
+    for (const minLeft of [2, 1]) {
+      for (const cell of targets) {
+        const from = regions[cell];
+        if (regions.filter((g) => g === from).length - 1 < minLeft) continue;
+        if (!staysConnected(n, regions, from, cell)) continue;
+        const options = shuffle(
+          rng,
+          [...new Set(orthoNeighbors(n, cell).map((j) => regions[j]))].filter((g) => g !== from),
+        );
+        if (!options.length) continue;
+        regions[cell] = options[0];
+        moved = true;
+        break;
+      }
+      if (moved) break;
     }
     if (!moved) return false;
   }
   return false;
 }
 
+/**
+ * Gives each one-square color a neighboring square (taken from a bigger neighbor
+ * that stays in one piece). Returns false if some lone square couldn't be grown.
+ */
+function fixSingles(n: number, regions: number[], solution: number[], rng: Rng): boolean {
+  const catCells = new Set(solution.map((c, r) => r * n + c));
+  const size = (g: number) => regions.filter((x) => x === g).length;
+  let ok = true;
+  for (let g = 0; g < n; g++) {
+    if (size(g) !== 1) continue;
+    const lone = regions.indexOf(g);
+    const options = shuffle(rng, orthoNeighbors(n, lone)).filter(
+      (j) => !catCells.has(j) && size(regions[j]) >= 3 && staysConnected(n, regions, regions[j], j),
+    );
+    if (options.length) regions[options[0]] = g;
+    else ok = false;
+  }
+  return ok;
+}
+
 export interface GeneratedPuzzle extends Puzzle {
   grade: GradeResult;
 }
 
-/** One attempt at a uniquely solvable, logic-solvable puzzle. */
-export function generateCandidate(n: number, rng: Rng, skew = 1.5): GeneratedPuzzle | null {
+/**
+ * One attempt at a uniquely solvable, logic-solvable puzzle with at most
+ * `maxSingles` one-square colors.
+ */
+export function generateCandidate(n: number, rng: Rng, skew = 1.5, maxSingles = n): GeneratedPuzzle | null {
   const solution = randomSolution(n, rng);
   const regions = growRegions(n, solution, rng, skew);
-  if (!makeUnique(n, regions, solution, rng)) return null;
+  // Making the solution unique can leave lone squares, and growing them can allow a
+  // second solution again, so alternate a few times until both are settled.
+  let settled = false;
+  for (let pass = 0; pass < 4 && !settled; pass++) {
+    if (!makeUnique(n, regions, solution, rng)) return null;
+    if (singleSquareRegions({ size: n, regions }) <= maxSingles) settled = true;
+    else fixSingles(n, regions, solution, rng);
+  }
+  if (!settled) return null;
   const g = grade(n, regions);
   if (!g.solved) return null;
   return { size: n, regions, solution, grade: g };
@@ -167,9 +213,10 @@ export function generatePuzzle(
   const want = { easy: 0, medium: 1, hard: 2 }[difficulty];
   let best: { p: GeneratedPuzzle; dist: number } | null = null;
   for (let a = 0; a < attempts; a++) {
-    // Uneven region sizes produce easier puzzles; even sizes produce harder ones.
-    const skew = difficulty === "easy" ? 2.5 : difficulty === "hard" ? 0.6 : 1.3;
-    const p = generateCandidate(n, rng, skew);
+    // Uneven region sizes produce easier puzzles; even sizes produce harder ones. Big
+    // boards are hard anyway, so they use uneven sizes to find a match much sooner.
+    const skew = difficulty === "easy" || n >= 10 ? 2.5 : difficulty === "hard" ? 0.6 : 1.3;
+    const p = generateCandidate(n, rng, skew, maxSingleSquares(difficulty));
     if (!p) continue;
     const got = { easy: 0, medium: 1, hard: 2 }[classify(n, p.grade)];
     const dist = Math.abs(got - want);
@@ -179,7 +226,18 @@ export function generatePuzzle(
   if (best) return best.p;
   // Extremely unlikely: keep trying without a difficulty target.
   for (;;) {
-    const p = generateCandidate(n, rng);
+    const p = generateCandidate(n, rng, 1.5, maxSingleSquares(difficulty));
     if (p) return p;
   }
+}
+
+/** One-square colors hand you a cat for free, so they're rationed. */
+export function maxSingleSquares(difficulty: Difficulty): number {
+  return difficulty === "hard" ? 0 : 1;
+}
+
+export function singleSquareRegions(p: { size: number; regions: number[] }): number {
+  const counts = new Array<number>(p.size).fill(0);
+  for (const g of p.regions) counts[g]++;
+  return counts.filter((c) => c === 1).length;
 }

@@ -1,6 +1,6 @@
 import { LogicState, type UnitKind } from "./puzzle/logic";
 import type { Puzzle } from "./puzzle/types";
-import { REGION_COLORS } from "./palette";
+import type { RegionColor } from "./palette";
 
 export const EMPTY = 0;
 export const CROSS = 1;
@@ -20,20 +20,20 @@ export interface Hint {
 
 type UnitRef = { kind: UnitKind; index: number };
 
-function unitName(u: UnitRef, capital = false): string {
+function unitName(u: UnitRef, colors: RegionColor[], capital = false): string {
   const s =
     u.kind === "row"
       ? `row ${u.index + 1}`
       : u.kind === "col"
         ? `column ${u.index + 1}`
-        : `the ${REGION_COLORS[u.index].name} color`;
+        : `the ${colors[u.index].name} color`;
   return capital ? s[0].toUpperCase() + s.slice(1) : s;
 }
 
-function listNames(units: UnitRef[]): string {
+function listNames(units: UnitRef[], colors: RegionColor[]): string {
   if (!units.length) return "";
   const kind = units[0].kind;
-  const nums = units.map((u) => (u.kind === "region" ? REGION_COLORS[u.index].name : String(u.index + 1)));
+  const nums = units.map((u) => (u.kind === "region" ? colors[u.index].name : String(u.index + 1)));
   const joined = nums.length === 2 ? `${nums[0]} and ${nums[1]}` : `${nums.slice(0, -1).join(", ")} and ${nums.at(-1)}`;
   return kind === "row" ? `rows ${joined}` : kind === "col" ? `columns ${joined}` : `the ${joined} colors`;
 }
@@ -44,7 +44,8 @@ function unitCells(state: LogicState, u: UnitRef): number[] {
   return state.units[base + u.index];
 }
 
-export function getHint(puzzle: Puzzle, marks: number[]): Hint {
+/** `colors` are the region colors as shown on the board, so hints name the right ones. */
+export function getHint(puzzle: Puzzle, marks: number[], colors: RegionColor[]): Hint {
   const { size: n, solution, regions } = puzzle;
   const isSolutionCell = (i: number) => solution[Math.floor(i / n)] === i % n;
 
@@ -82,7 +83,7 @@ export function getHint(puzzle: Puzzle, marks: number[]): Hint {
   switch (d.technique) {
     case "single":
       return {
-        message: `${unitName(d.units[0], true)} has only one spot left, so a cat must be hiding here. Double-tap it!`,
+        message: `${unitName(d.units[0], colors, true)} has only one spot left, so a cat must be hiding here. Double-tap it!`,
         focus: [d.place!],
         area,
         kind: "cat",
@@ -91,13 +92,13 @@ export function getHint(puzzle: Puzzle, marks: number[]): Hint {
       const [src, dst] = d.units;
       const message =
         src.kind === "region"
-          ? `${unitName(src, true)} only fits in ${unitName(dst)}, so the rest of ${unitName(dst)} can't have a cat.`
-          : `Every open spot in ${unitName(src)} is ${REGION_COLORS[dst.index].name}, so the rest of ${unitName(dst)} can't have a cat.`;
+          ? `${unitName(src, colors, true)} only fits in ${unitName(dst, colors)}, so the rest of ${unitName(dst, colors)} can't have a cat.`
+          : `Every open spot in ${unitName(src, colors)} is ${colors[dst.index].name}, so the rest of ${unitName(dst, colors)} can't have a cat.`;
       return { message, focus: d.eliminate, area, kind: "cross" };
     }
     case "blocker":
       return {
-        message: `A cat here would leave no room for ${unitName(d.units[0])}. Cross it out!`,
+        message: `A cat here would leave no room for ${unitName(d.units[0], colors)}. Cross it out!`,
         focus: d.eliminate,
         area,
         kind: "cross",
@@ -106,9 +107,9 @@ export function getHint(puzzle: Puzzle, marks: number[]): Hint {
       const k = d.units.length / 2;
       const from = d.units.slice(0, k);
       const to = d.units.slice(k);
-      const fromName = listNames(from);
+      const fromName = listNames(from, colors);
       return {
-        message: `${fromName[0].toUpperCase() + fromName.slice(1)} only fit in ${listNames(to)}. Those ${k} cats are spoken for, so the other spots there can be crossed out.`,
+        message: `${fromName[0].toUpperCase() + fromName.slice(1)} only fit in ${listNames(to, colors)}. Those ${k} cats are spoken for, so the other spots there can be crossed out.`,
         focus: d.eliminate,
         area,
         kind: "cross",
