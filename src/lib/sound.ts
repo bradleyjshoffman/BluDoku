@@ -32,6 +32,10 @@ export function setSoundEnabled(on: boolean) {
 /** Call from a tap: browsers only allow audio to start after a user gesture. */
 export function unlockAudio() {
   if (typeof window === "undefined") return;
+  if (ctx?.state === "closed") {
+    ctx = null;
+    master = null;
+  }
   if (!ctx) {
     try {
       // Safari 16.4+: "ambient" respects the silent switch and mixes with other audio.
@@ -52,8 +56,23 @@ export function unlockAudio() {
     master.connect(ctx.destination);
     loadClips();
   }
-  if (ctx.state === "suspended") void ctx.resume().then(() => startMusic());
-  else startMusic();
+  wake();
+}
+
+/**
+ * Get audio running again. Browsers pause it when you leave the tab; iPhone marks it
+ * "interrupted" rather than "suspended", so resume from any state that isn't running.
+ */
+function wake() {
+  if (!ctx || ctx.state === "closed") return;
+  if (ctx.state === "running") startMusic();
+  else
+    ctx
+      .resume()
+      .then(() => startMusic())
+      .catch(() => {
+        /* still blocked: the next tap will try again */
+      });
 }
 
 function loadClips() {
@@ -69,7 +88,10 @@ function loadClips() {
 }
 
 function ready(): AudioContext | null {
-  if (!enabled || !ctx || !master || ctx.state !== "running") return null;
+  if (!enabled || !ctx || !master || ctx.state === "closed") return null;
+  // Coming back to the tab, the tap that wakes audio is the same tap that wants a sound:
+  // schedule it anyway, and it plays the moment audio resumes instead of being dropped.
+  if (ctx.state !== "running") wake();
   return ctx;
 }
 
@@ -298,6 +320,12 @@ function scheduleMusic() {
 if (typeof document !== "undefined") {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") stopMusic();
-    else startMusic();
+    else wake();
+  });
+}
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  // Returning via the back button can restore a frozen page; wake audio for it too.
+  window.addEventListener("pageshow", (e) => {
+    if ((e as PageTransitionEvent).persisted) wake();
   });
 }
